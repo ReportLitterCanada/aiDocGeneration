@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Document</title>
+</head>
+<body>
+    <h1>Document Upload and Input Form</h1>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+        <div>
+            <label for="file">Upload a PDF or Word document:</label>
+            <input type="file" id="file" name="file" required>
+        </div>
+        <div>
+            <label for="textarea">Additional Information:</label>
+            <textarea id="textarea" name="additionalInput" rows="4" cols="50"></textarea>
+        </div>
+        <div>
+            <label>Choose an Option:</label>
+            <input type="radio" id="option1" name="option" value="Option 1">
+            <label for="option1">Option 1</label>
+            <input type="radio" id="option2" name="option" value="Option 2">
+            <label for="option2">Option 2</label>
+        </div>
+        <div>
+            <label for="select">Choose Multiple Values:</label>
+            <select id="select" name="values" multiple>
+                <option value="Value 1">Value 1</option>
+                <option value="Value 2">Value 2</option>
+                <option value="Value 3">Value 3</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit">Send</button>
+        </div>
+    </form>
+</body>
+</html>
