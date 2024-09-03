@@ -3,14 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatGPT Response</title>
+    <title>Evaluation Results</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            letter-spacing: 1px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        li {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            display: none;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        li.visible {
+            display: block;
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        strong {
+            color: #333;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.2em;
+            background-color: #fafafa;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            min-height: 150px;
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        .buttons {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        .buttons button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .buttons button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .buttons button:active {
+            background-color: #003f7f;
+            transform: translateY(0);
+        }
+
+        input[type="text"] {
+            display: none;
+        }
+
+        .edit-text {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            color: #007bff;
+            transition: color 0.3s ease;
+        }
+
+     
+
+        .edit-icon {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
+            color: #007bff;
+            transition: color 0.3s ease;
+        }
+
+        .edit-icon:hover {
+            color: #0056b3;
+        }
+
+        #download-btn, #download-word-btn {
+            display: none;
+            margin-top: 30px;
+            padding: 15px 30px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2em;
+            text-align: center;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        #download-btn:hover, #download-word-btn:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        #download-btn:active, #download-word-btn:active {
+            background-color: #003f7f;
+            transform: translateY(0);
+        }
+    </style>
 </head>
 <body>
-    <h1>Response from ChatGPT</h1>
-    <div>
-        <p><strong>Generated Response:</strong></p>
-        <p><%= response %></p>
+    <h1>Evaluation Results</h1>
+    <ul>
+        <% sections.forEach(function(section, index) { %>
+            <li id="section-<%= index %>" class="<%= index === 0 ? 'visible' : '' %>">
+                <strong><%= section.NAME %>:</strong>
+                <div id="content-<%= index %>">
+                    <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
+                    <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>"/>
+                </div>
+                <div class="buttons">
+                    <button onclick="editSection(<%= index %>)" id="edit-<%= index %>" class="<%= index === 0 ? 'edit-text' : 'edit-icon' %>"><%= index === 0 ? 'Edit' : 'Edit' %></button>
+                    <button onclick="acceptSection(<%= index %>)" id="accept-<%= index %>">Accept</button>
+                    <button onclick="saveSection(<%= index %>)" id="save-<%= index %>" style="display:none;">Save</button>
+                    <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>" style="display:none;">Discard</button>
+                </div>
+            </li>
+        <% }); %>
+    </ul>
+    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto;">
+        <button id="download-btn" onclick="downloadFile()">Download PDF</button>
+        <button id="download-word-btn" onclick="downloadWordFile()">Download Word</button>
     </div>
-    <a href="/">Back to Upload</a>
+    
+    <script>
+        function downloadWordFile() {
+            fetch('/download-word', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(new Blob([blob]));
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'Evaluation_Results.docx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => console.error('Download error:', error));
+        }
+   
+    function downloadFile() {
+        fetch('/download-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok.');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'Evaluation_Results.pdf';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(error => console.error('Download error:', error));
+    }
+
+    let acceptedSections = new Set();
+
+    function editSection(index) {
+        const textarea = document.getElementById('textarea-' + index);
+        const input = document.getElementById('input-' + index);
+        const editButton = document.getElementById('edit-' + index);
+        const saveButton = document.getElementById('save-' + index);
+        const discardButton = document.getElementById('discard-' + index);
+        const acceptButton = document.getElementById('accept-' + index);
+
+        textarea.style.display = 'none';
+        input.style.display = 'block';
+
+        editButton.style.display = 'none';
+        acceptButton.style.display = 'none';
+        saveButton.style.display = 'inline-block';
+        discardButton.style.display = 'inline-block';
+    }
+
+    function saveSection(index) {
+        const textarea = document.getElementById('textarea-' + index);
+        const input = document.getElementById('input-' + index);
+        const value = input.value;
+
+        textarea.value = value;
+        fetch(`/update-tor/${index}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ value: value, isTextField: true }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            textarea.style.display = 'block';
+            input.style.display = 'none';
+
+            document.getElementById('edit-' + index).style.display = 'inline-block';
+            document.getElementById('save-' + index).style.display = 'none';
+            document.getElementById('discard-' + index).style.display = 'none';
+
+            acceptSection(index); // Handle the accepted section properly.
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    function discardSection(index) {
+    const textarea = document.getElementById('textarea-' + index);
+    const input = document.getElementById('input-' + index);
+    const editButton = document.getElementById('edit-' + index);
+    const saveButton = document.getElementById('save-' + index);
+    const discardButton = document.getElementById('discard-' + index);
+    const acceptButton = document.getElementById('accept-' + index);
+    const contentDiv = document.getElementById('content-' + index);
+ // Display the edit button, hide the save and discard buttons
+ editButton.style.display = 'inline-block';
+    saveButton.style.display = 'none';
+    discardButton.style.display = 'none';
+
+    // Ensure the accept button remains hidden after discarding
+    acceptButton.style.display = 'none';
+    // Hide the textarea and input
+    textarea.style.display = 'none';
+    input.style.display = 'none';
+
+    // Show only the section name and the edit icon
+    contentDiv.innerHTML = `<strong>${sections[index].NAME}:</strong>`;
+
+   
+}
+
+    function acceptSection(index) {
+        acceptedSections.add(index);
+
+        document.getElementById('accept-' + index).style.display = 'none';
+
+        const editButton = document.getElementById('edit-' + index);
+        editButton.classList.remove('edit-text');
+        editButton.classList.add('edit-icon');
+        editButton.innerHTML = '<i class="fas fa-edit"></i>';
+
+        document.getElementById('textarea-' + index).style.display = 'none';
+
+        const nextSection = document.getElementById('section-' + (index + 1));
+        if (nextSection) {
+            nextSection.classList.add('visible');
+            nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            // If all sections are accepted, show the download button
+            document.getElementById('download-btn').style.display = 'block';
+            document.getElementById('download-word-btn').style.display = 'block';
+        }
+
+        document.querySelectorAll('li').forEach((section, i) => {
+            if (acceptedSections.has(i)) {
+                section.classList.add('visible');
+            }
+        });
+    }
+   </script>
 </body>
 </html>
