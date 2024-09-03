@@ -14,7 +14,7 @@ class TORObject {
       suggestedMethodology: new TORSection('008', 'Suggested Methodology', 'Suggested methodology for the evaluation', 8, 'Suggest a methodology for the evaluation.', {}),
       expectedDeliverables: new TORSection('009', 'Expected Deliverables', 'Expected deliverables from the evaluation', 9, 'What are the expected deliverables?', {}),
       evaluationTeamComposition: new TORSection('010', 'Evaluation Team Composition', 'Composition of the evaluation team', 10, 'Describe the evaluation team composition.', {}),
-      evaluationTimeframe: new TORSection('011', 'Evaluation Timeframe', 'Timeframe for the evaluation', 11, 'Specify the evaluation timeframe.', {}),
+      evaluationTimeframe: new TORSection('012', 'Evaluation Timeframe', 'Timeframe for the evaluation', 11, 'Specify the evaluation timeframe.', {}),
     };
     
   }

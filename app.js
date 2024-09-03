@@ -6,7 +6,7 @@ const textract = require('textract');
 const TORObject = require('./torObject'); // Import the TORObject class
 require('dotenv').config();
 const PDFDocument = require('pdfkit');
-const { Document, Packer, Paragraph, TextRun } = require('docx'); // Import docx library
+const { Document, Packer, Paragraph, TextRun } = require('docx'); // Import docx librar
 
 const app = express();
 app.set('view engine', 'ejs');

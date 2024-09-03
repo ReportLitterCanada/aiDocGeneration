@@ -8,7 +8,7 @@ class TORSection {
     this._prompt = prompt;
     this._extraPromptParameters = extraPromptParameters;
 
-    this._value = ''; // Default value
+    this._value = ''; 
     this._isTextField = true; // Assume text fields by default
   }
 
