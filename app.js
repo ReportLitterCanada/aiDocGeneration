@@ -7,9 +7,11 @@ const TORObject = require('./torObject'); // Import the TORObject class
 require('dotenv').config();
 const PDFDocument = require('pdfkit');
 const { Document, Packer, Paragraph, TextRun } = require('docx'); // Import docx librar
+const path = require('path');
 
 const app = express();
 app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));  // Correctly set the path to the views directory
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json()); // Add this line to parse JSON bodies
 app.use(express.static('public'));

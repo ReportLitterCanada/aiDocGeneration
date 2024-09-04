@@ -124,13 +124,11 @@
             border: none;
             cursor: pointer;
             font-size: 1.5em;
-            color: #007bff;
+            color:transparent;
             transition: color 0.3s ease;
         }
 
-        .edit-icon:hover {
-            color: #0056b3;
-        }
+   
 
         #download-btn, #download-word-btn {
             display: none;
@@ -294,6 +292,7 @@
     const contentDiv = document.getElementById('content-' + index);
  // Display the edit button, hide the save and discard buttons
  editButton.style.display = 'inline-block';
+ editButton.style.backgroundColor = 'transparent';
     saveButton.style.display = 'none';
     discardButton.style.display = 'none';
 
@@ -317,7 +316,8 @@
         const editButton = document.getElementById('edit-' + index);
         editButton.classList.remove('edit-text');
         editButton.classList.add('edit-icon');
-        editButton.innerHTML = '<i class="fas fa-edit"></i>';
+        editButton.style.backgroundColor = 'transparent';
+        editButton.innerHTML = '✏️';
 
         document.getElementById('textarea-' + index).style.display = 'none';
 
