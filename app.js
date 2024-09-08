@@ -6,9 +6,8 @@ const textract = require("textract");
 const TORObject = require("./torObject"); // Import the TORObject class
 require("dotenv").config();
 const PDFDocument = require("pdfkit");
-const { Document, Packer, Paragraph, TextRun } = require("docx"); // Import docx librar
+const { Document, Packer, Paragraph, TextRun } = require("docx");
 const path = require("path");
-
 const app = express();
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views")); // Correctly set the path to the views directory
@@ -69,11 +68,11 @@ app.post("/download-pdf", (req, res) => {
   }
 });
 
-// New route to handle Word document download
+
 app.post("/download-word", (req, res) => {
-  try {
-    const doc = new Document({
-      sections: [
+    try {
+      // Create a new Document with a single section
+      const sections = [
         {
           properties: {},
           children: [
@@ -86,49 +85,54 @@ app.post("/download-word", (req, res) => {
                 }),
               ],
               alignment: "center",
-              spacing: { after: 300 },
+              spacing: { after: 10 },
             }),
           ],
         },
-      ],
-    });
-
-    if (torObject) {
-      const sections = torObject.getSectionsForRendering();
-      sections.forEach((section) => {
-        doc.addSection({
-          children: [
+      ];
+  
+      if (torObject) {
+        const renderedSections = torObject.getSectionsForRendering();
+  
+        // Add content to the same section
+        renderedSections.forEach((section) => {
+          sections[0].children.push(
             new Paragraph({
               text: section.NAME,
               heading: "Heading2",
-              spacing: { after: 100 },
-            }),
+              spacing: { after: 10 },
+            })
+          );
+          sections[0].children.push(
             new Paragraph({
               text: section.VALUE,
-              spacing: { after: 300 },
-            }),
-          ],
+              spacing: { after: 10 },
+            })
+          );
         });
+      }
+  
+      // Create the document with the sections array
+      const doc = new Document({
+        sections,
       });
+  
+      Packer.toBuffer(doc).then((buffer) => {
+        res.setHeader(
+          "Content-Disposition",
+          'attachment; filename="Evaluation_Results.docx"'
+        );
+        res.setHeader(
+          "Content-Type",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        );
+        res.send(buffer);
+      });
+    } catch (error) {
+      console.error("Error generating Word document:", error);
+      res.status(500).send("Error generating Word document.");
     }
-
-    Packer.toBuffer(doc).then((buffer) => {
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="Evaluation_Results.docx"'
-      );
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      );
-      res.send(buffer);
-    });
-  } catch (error) {
-    console.error("Error generating Word document:", error);
-    res.status(500).send("Error generating Word document.");
-  }
-});
-
+  });
 // File upload and initial section processing
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
@@ -160,7 +164,6 @@ app.post("/upload", upload.single("file"), async (req, res) => {
       const firstSection = sections[0];
       const sectionKey = firstSection.NAME.toLowerCase().replace(/ /g, "");
       const prompt = `${firstSection.prompt}: ${documentText}`;
-     
 
       try {
         // Uncomment the OpenAI API code to process the first section dynamically
@@ -183,7 +186,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         console.warn("OpenAI API call failed, using fallback:", error);
         torObject.updateSection(
           sectionKey,
-          `Fallback response: ${getRandomNumber()}`
+          `OpenAI API call failed`
         );
       }
 
@@ -199,143 +202,166 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 app.post("/process-next-section/:index", async (req, res) => {
-    try {
-      const index = parseInt(req.params.index, 10);
-      const selectedParameters = req.body.parameters || {}; // User-selected parameters
-  console.log("Selected parameters:", selectedParameters);
-      if (isNaN(index)) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid index parameter." });
-      }
-  
-      if (!torObject) {
-        return res
-          .status(400)
-          .json({ success: false, message: "TORObject is not initialized." });
-      }
-  
-      const sections = torObject.getSectionsForRendering();
-  
-      if (index < 0 || index >= sections.length) {
-        return res
-          .status(400)
-          .json({ success: false, message: `Invalid section index ${index}.` });
-      }
-  
-      const currentSection = sections[index]; // Current section being processed
-      const nextSection = sections[index + 1]; // Next section for processing
-  
-      // Function to escape special characters in the placeholder
-      const escapeRegExp = (string) => {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      };
-  
-      const replacePlaceholders = (
-        prompt,
-        extraPromptParameters,
+  try {
+    const index = parseInt(req.params.index, 10);
+    const calledFromSave = req.body.calledFromSave;
+    const selectedParameters = req.body.parameters || {}; // User-selected parameters
+    if (isNaN(index)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid index parameter." });
+    }
+
+    if (!torObject) {
+      return res
+        .status(400)
+        .json({ success: false, message: "TORObject is not initialized." });
+    }
+
+    const sections = torObject.getSectionsForRendering();
+
+    if (index < 0 || index >= sections.length) {
+      return res
+        .status(400)
+        .json({ success: false, message: `Invalid section index ${index}.` });
+    }
+
+    const currentSection = sections[index]; // Current section being processed
+    const nextSection = sections[index + 1]; // Next section for processing
+
+    // Function to escape special characters in the placeholder
+    const escapeRegExp = (string) => {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    };
+
+    const replacePlaceholders = (
+      prompt,
+      extraPromptParameters,
+      selectedParameters
+    ) => {
+      let updatedPrompt = prompt;
+      extraPromptParameters.forEach((param, index) => {
+        const { code } = param;
+        const placeholder = `{${code}}`;
+        // Escape the placeholder for regex
+        const escapedPlaceholder = escapeRegExp(placeholder);
+        const value = selectedParameters[index]; // Use code to get value
+        const regex = new RegExp(escapedPlaceholder, "g");
+        updatedPrompt = updatedPrompt.replace(regex, value);
+      });
+
+      return updatedPrompt;
+    };
+
+    // Process the current section's prompt with user-selected parameters
+    if (Array.isArray(currentSection.extraPromptParameters) && !calledFromSave) {
+      currentSection.prompt = replacePlaceholders(
+        currentSection.prompt,
+        currentSection.extraPromptParameters,
         selectedParameters
-      ) => {
-        let updatedPrompt = prompt;
-        extraPromptParameters.forEach((param,index) => {
-          const { code } = param; // Extract the code (e.g., 'objectiveType', 'stakeholders')
-          const placeholder = `{${code}}`; // Create the placeholder (e.g., '{objectiveType}')
-         // Escape the placeholder for regex
-          const escapedPlaceholder = escapeRegExp(placeholder);
-          const value = selectedParameters[index]; // Use code to get value
-          const regex = new RegExp(escapedPlaceholder, "g");
-          updatedPrompt = updatedPrompt.replace(regex, value);
-        
-        });
-  
-        return updatedPrompt;
-      };
-  
-      // Process the current section's prompt with user-selected parameters
-      if (Array.isArray(currentSection.extraPromptParameters)) {
-        currentSection.prompt = replacePlaceholders(
-          currentSection.prompt,
-          currentSection.extraPromptParameters,
-          selectedParameters
-        );
-  
-        const sectionKey = currentSection.NAME.toLowerCase().replace(/ /g, "");
-        torObject.updateSection(sectionKey, `Processed value: ${getRandomNumber()}`);
-  
-        // Process the next section
-        if (nextSection) {
-          if (!Array.isArray(nextSection.extraPromptParameters) ||
-              Object.keys(nextSection.extraPromptParameters).length === 0) {
-            // If next section has no extraPromptParameters or is an empty object
-            const nextSectionKey = nextSection.NAME.toLowerCase().replace(/ /g, "");
+      );
 
-              // Uncomment the OpenAI API code to process the first section dynamically
+      const sectionKey = currentSection.NAME.toLowerCase().replace(/ /g, "");
+         // Uncomment the OpenAI API code to process the first section dynamically
         // const gptResponse = await openai.chat.completions.create({
         //     model: "gpt-4",
         //     messages: [
         //         { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
-        //         { role: "user", content: prompt }
-        //     ]
-        // });
-
-        // torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
-
-   
-            torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}`);
-          }
-        }
-  
-        res.json({
-          success: true,
-          message: "Section processed successfully.",
-          nextSection: nextSection,
-          sections: torObject.getSectionsForRendering(),
-        });
-  
-      } else {
-        // Handle case when currentSection does not have extraPromptParameters
-        const sectionKey = currentSection.NAME.toLowerCase().replace(/ /g, "");
-          // Uncomment the OpenAI API code to process the first section dynamically
-        // const gptResponse = await openai.chat.completions.create({
-        //     model: "gpt-4",
-        //     messages: [
-        //         { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
-        //         { role: "user", content: prompt }
+        //         { role: "user", content: updatedPrompt }
         //     ]
         // });
 
         // torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
 
-        torObject.updateSection(sectionKey, `Fallback response: ${getRandomNumber()}`);
-  
-        // Process the next section
-        if (nextSection) {
-          if (!Array.isArray(nextSection.extraPromptParameters) ||
-              Object.keys(nextSection.extraPromptParameters).length === 0) {
-            const nextSectionKey = nextSection.NAME.toLowerCase().replace(/ /g, "");
-            torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}`);
-          }
+      torObject.updateSection(
+        sectionKey,
+        `Processed value: ${getRandomNumber()}`
+      );
+
+      // Process the next section
+      if (nextSection&& !calledFromSave) {
+        if (
+          !Array.isArray(nextSection.extraPromptParameters) ||
+          Object.keys(nextSection.extraPromptParameters).length === 0
+        ) {
+          // If next section has no extraPromptParameters or is an empty object
+          const nextSectionKey = nextSection.NAME.toLowerCase().replace(
+            / /g,
+            ""
+          );
+
+          // Uncomment the OpenAI API code to process the first section dynamically
+          // const gptResponse = await openai.chat.completions.create({
+          //     model: "gpt-4",
+          //     messages: [
+          //         { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
+          //         { role: "user", content: updatedPrompt }
+          //     ]
+          // });
+
+          // torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+
+          torObject.updateSection(
+            nextSectionKey,
+            `Fallback response: ${getRandomNumber()}`
+          );
         }
-  
-        res.json({
-          success: true,
-          message: "Section processed successfully.",
-          nextSection: nextSection,
-          sections: torObject.getSectionsForRendering(),
-        });
       }
-    } catch (error) {
-      console.error("Error processing next section:", error);
-      res.status(500).json({ success: false, message: "Server error." });
+
+      res.json({
+        success: true,
+        message: "Section processed successfully.",
+        nextSection: nextSection,
+        sections: torObject.getSectionsForRendering(),
+      });
+    } else {
+   
+      // Process the next section
+      if (nextSection ) {
+        if (
+          !Array.isArray(nextSection.extraPromptParameters) ||
+          Object.keys(nextSection.extraPromptParameters).length === 0
+        ) {
+          const nextSectionKey = nextSection.NAME.toLowerCase().replace(
+            / /g,
+            ""
+          );
+
+            // Uncomment the OpenAI API code to process the first section dynamically
+            // const gptResponse = await openai.chat.completions.create({
+            //     model: "gpt-4",
+            //     messages: [
+            //         { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
+            //         { role: "user", content: updatedPrompt }
+            //     ]
+            // });
+
+            // torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+          torObject.updateSection(
+            nextSectionKey,
+            `Fallback response: ${getRandomNumber()}`
+          );
+        }
+      }
+
+      res.json({
+        success: true,
+        message: "Section processed successfully.",
+        nextSection: nextSection,
+        sections: torObject.getSectionsForRendering(),
+      });
     }
-  });
-  
+  } catch (error) {
+    console.error("Error processing next section:", error);
+    res.status(500).json({ success: false, message: "Server error." });
+  }
+});
+
 app.post("/update-tor/:index", (req, res) => {
   try {
     const index = parseInt(req.params.index, 10);
     const updatedValue = req.body.value;
     const isTextField = req.body.isTextField === "true"; // Ensure correct boolean value
-
     if (torObject) {
       const sections = torObject.getSectionsForRendering();
 
@@ -344,21 +370,23 @@ app.post("/update-tor/:index", (req, res) => {
 
         // Check if the value has changed before updating
         if (sections[index].VALUE !== updatedValue) {
+    
           torObject.updateSection(sectionKey, updatedValue, isTextField);
+         
+        } else {
+          console.log("No change detected, skipping update.");
         }
 
-      
+
         res.json({
           success: true,
           message: `Section ${index + 1} updated successfully. `,
         });
       } else {
-        res
-          .status(400)
-          .json({
-            success: false,
-            message: `Invalid section index ${index}. `,
-          });
+        res.status(400).json({
+          success: false,
+          message: `Invalid section index ${index}. `,
+        });
       }
     } else {
       res

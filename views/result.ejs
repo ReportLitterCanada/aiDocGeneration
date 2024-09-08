@@ -395,36 +395,40 @@ function saveSection(index) {
             document.getElementById('save-' + index).style.display = 'none';
             document.getElementById('discard-' + index).style.display = 'none';
 
-            acceptSection(index); // Handle the accepted section properly.
+            acceptSection(index, true); // Handle the accepted section properly.
         })
         .catch(error => {
             console.error('Error:', error);
         });
     }
-
-    function discardSection(index) {
-
-        
-  
-    const input = document.getElementById('input-' + index);
    
-    const saveButton = document.getElementById('save-' + index);
-    const discardButton = document.getElementById('discard-' + index);
-    const acceptButton = document.getElementById('accept-' + index);
-    const contentDiv = document.getElementById('content-' + index);
-    document.getElementById('accept-' + index).style.display = 'none';
+   
+ function discardSection(index) {
+    const input = document.getElementById('input-' + index);
+   document.getElementById('save-' + index).style.display = 'none';
+    document.getElementById('discard-' + index).style.display = 'none';
+    document.getElementById('accept-' + index).style.display = 'none'; 
     const editButton = document.getElementById('edit-' + index);
     editButton.classList.remove('edit-text');
     editButton.classList.add('edit-icon');
     editButton.style.backgroundColor = 'transparent';
     editButton.innerHTML = '✏️';
-    document.getElementById('textarea-' + index).style.display = 'none';
+    editButton.style.display = 'inline-block';
+    
+    const contentDiv = document.getElementById('content-' + index);
+     // Hide input and textarea
+    input.style.display = 'none';
+    textarea.style.display = 'none';
 
+    // Show contentDiv with the current input value
+    contentDiv.style.display = 'none';
+    contentDiv.textContent = input.value;
 
-
+    
+    // If needed, hide the accept button after discarding
+    // acceptButton.style.display = 'none'; 
 }
-
-    function acceptSection(index) {
+   function acceptSection(index,calledFromSave = false) {
     acceptedSections.add(index);
 
     // Hide the accept button and update the edit button
@@ -443,7 +447,7 @@ function saveSection(index) {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ value: textareaValue })
+        body: JSON.stringify({ value: textareaValue, calledFromSave })
     })
     .then(response => response.json())
     .then(data => {
