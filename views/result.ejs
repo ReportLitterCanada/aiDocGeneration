@@ -6,7 +6,7 @@
     <title>Evaluation Results</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
-        body {
+     body {
             font-family: 'Roboto', sans-serif;
             margin: 0;
             padding: 20px;
@@ -117,18 +117,14 @@
             transition: color 0.3s ease;
         }
 
-     
-
         .edit-icon {
             background-color: transparent;
             border: none;
             cursor: pointer;
             font-size: 1.5em;
-            color:transparent;
+            color: #007bff;
             transition: color 0.3s ease;
         }
-
-   
 
         #download-btn, #download-word-btn {
             display: none;
@@ -155,27 +151,90 @@
             background-color: #003f7f;
             transform: translateY(0);
         }
+
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 8px; 
+            font-size: 1.1em;
+            background-color: #fafafa;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        #extraPrompt label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    
+
+
     </style>
 </head>
 <body>
     <h1>Evaluation Results</h1>
     <ul>
         <% sections.forEach(function(section, index) { %>
-            <li id="section-<%= index %>" class="<%= index === 0 ? 'visible' : '' %>">
-                <strong><%= section.NAME %>:</strong>
-                <div id="content-<%= index %>">
-                    <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
-                    <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>"/>
-                </div>
-                <div class="buttons">
-                    <button onclick="editSection(<%= index %>)" id="edit-<%= index %>" class="<%= index === 0 ? 'edit-text' : 'edit-icon' %>"><%= index === 0 ? 'Edit' : 'Edit' %></button>
-                    <button onclick="acceptSection(<%= index %>)" id="accept-<%= index %>">Accept</button>
-                    <button onclick="saveSection(<%= index %>)" id="save-<%= index %>" style="display:none;">Save</button>
-                    <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>" style="display:none;">Discard</button>
-                </div>
-            </li>
+          <!-- Inside your loop for rendering sections -->
+<li id="section-<%= index %>" class="<%= index === 0 ? 'visible' : '' %>">
+    <!-- Show extraPromptParameters dropdown first if present -->
+    <div id="extraPrompt-<%= index %>">
+    <% if (section.extraPromptParameters && section.extraPromptParameters.length > 0) { %>
+      
+        <strong for="extraPrompt-<%= index %>">Choose Parameters:</strong><br/>
+        <% section.extraPromptParameters.forEach(function(parameter) { %>
+            <label style="display:block;margin-top: 20px;font-size: 1.1em;" for="<%= parameter.code %>"><%= parameter.name %>:</label>
+            <select id="<%= parameter.code %>" onchange="updatePromptForSection(<%= index %>)">
+                <% parameter.options.forEach(function(option) { %>
+                    <option value="<%= option %>"><%= option %></option>
+                <% }); %>
+            </select>
         <% }); %>
-    </ul>
+        <div class="buttons">
+                    <button id="save-prompt-<%= index %>"  onclick="savePromptForSection(<%= index %>)">Save</button>
+                    </div>
+    </div>
+        <!-- Hidden section name and value until save button is clicked -->
+        <div id="section-name-value-<%= index %>" style="display: none;">
+            <strong><%= section.NAME %>:</strong>
+            <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
+            <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>" style="display: none;" />
+        </div>
+        
+        <!-- Hide Edit and Accept buttons when extraPromptParameters are present -->
+        <div class="buttons">
+            <button onclick="editSection(<%= index %>)" id="edit-<%= index %>" style="display:none;" class="edit-text">Edit</button>
+            <button onclick="acceptSection(<%= index %>)" style="display:none;" id="accept-<%= index %>">Accept</button>
+            <button onclick="saveSection(<%= index %>)" id="save-<%= index %>" style="display:none;">Save</button>
+            <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>" style="display:none;">Discard</button>
+        </div>
+    <% } else { %>
+        <!-- If no extraPromptParameters, show section name and value directly -->
+        <strong><%= section.NAME %>:</strong>
+        <div id="content-<%= index %>">
+            <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
+            <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>" style="display: none;" />
+        </div>
+        <div class="buttons">
+            <button onclick="editSection(<%= index %>)" id="edit-<%= index %>" class="edit-text">Edit</button>
+            <button onclick="acceptSection(<%= index %>)" id="accept-<%= index %>">Accept</button>
+            <button onclick="saveSection(<%= index %>)" id="save-<%= index %>" style="display:none;">Save</button>
+            <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>" style="display:none;">Discard</button>
+        </div>
+    <% } %>
+</li>
+
+        <% }); %>
+      </ul>
+      
     <div style="display: flex; justify-content: center; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto;">
         <button id="download-btn" onclick="downloadFile()">Download PDF</button>
         <button id="download-word-btn" onclick="downloadWordFile()">Download Word</button>
@@ -235,8 +294,66 @@
     }
 
     let acceptedSections = new Set();
+  // Embedding the sections array directly into the client-side JavaScript
+        const sections = <%- JSON.stringify(sections) %>;
+   
+   function savePromptForSection(index) {
+    const section = sections[index];
+    const prompts = section.extraPromptParameters.map(parameter => {
+        const select = document.getElementById(parameter.code);
+        return select ? select.value : null;
+    });
 
-    function editSection(index) {
+    // Prepare the data to send to the server
+    const requestData = {
+        parameters: prompts
+    };
+
+    // Make a fetch request to process the prompts and get the updated value
+    fetch(`/process-next-section/${index}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok.');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const thisIndex = index;
+            const thisSection = document.getElementById('section-' + thisIndex);
+            if (thisSection) {
+               
+                // Update the textarea of the next section
+                const thisTextArea = document.getElementById('textarea-' + thisIndex);
+              
+                if (thisTextArea) {
+                    thisTextArea.value = data.sections[thisIndex].VALUE;
+                }
+
+            } 
+           
+            document.getElementById('extraPrompt-' + index).style.display = 'none';
+            document.getElementById('section-name-value-' + index).style.display = 'block';
+            document.getElementById('edit-' + index).style.display = 'inline-block';
+            document.getElementById('accept-' + index).style.display = 'inline-block';
+            document.getElementById('save-prompt-' + index).style.display = 'none'; // Hide the Save button after parameters are saved
+            document.getElementById('input-' + index).style.display = 'none';
+            document.getElementById('textarea-' + index).style.display = 'block';
+        } else {
+            console.error('Server error:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error processing prompts:', error);
+    });
+}
+      function editSection(index) {
         const textarea = document.getElementById('textarea-' + index);
         const input = document.getElementById('input-' + index);
         const editButton = document.getElementById('edit-' + index);
@@ -244,6 +361,8 @@
         const discardButton = document.getElementById('discard-' + index);
         const acceptButton = document.getElementById('accept-' + index);
 
+        // Initialize input field with textarea value
+        input.value = textarea.value;
         textarea.style.display = 'none';
         input.style.display = 'block';
 
@@ -253,7 +372,8 @@
         discardButton.style.display = 'inline-block';
     }
 
-    function saveSection(index) {
+
+function saveSection(index) {
         const textarea = document.getElementById('textarea-' + index);
         const input = document.getElementById('input-' + index);
         const value = input.value;
@@ -283,60 +403,85 @@
     }
 
     function discardSection(index) {
-    const textarea = document.getElementById('textarea-' + index);
+
+        
+  
     const input = document.getElementById('input-' + index);
-    const editButton = document.getElementById('edit-' + index);
+   
     const saveButton = document.getElementById('save-' + index);
     const discardButton = document.getElementById('discard-' + index);
     const acceptButton = document.getElementById('accept-' + index);
     const contentDiv = document.getElementById('content-' + index);
- // Display the edit button, hide the save and discard buttons
- editButton.style.display = 'inline-block';
- editButton.style.backgroundColor = 'transparent';
-    saveButton.style.display = 'none';
-    discardButton.style.display = 'none';
+    document.getElementById('accept-' + index).style.display = 'none';
+    const editButton = document.getElementById('edit-' + index);
+    editButton.classList.remove('edit-text');
+    editButton.classList.add('edit-icon');
+    editButton.style.backgroundColor = 'transparent';
+    editButton.innerHTML = '✏️';
+    document.getElementById('textarea-' + index).style.display = 'none';
 
-    // Ensure the accept button remains hidden after discarding
-    acceptButton.style.display = 'none';
-    // Hide the textarea and input
-    textarea.style.display = 'none';
-    input.style.display = 'none';
 
-    // Show only the section name and the edit icon
-    contentDiv.innerHTML = `<strong>${sections[index].NAME}:</strong>`;
 
-   
 }
 
     function acceptSection(index) {
-        acceptedSections.add(index);
+    acceptedSections.add(index);
 
-        document.getElementById('accept-' + index).style.display = 'none';
+    // Hide the accept button and update the edit button
+    document.getElementById('accept-' + index).style.display = 'none';
+    const editButton = document.getElementById('edit-' + index);
+    editButton.classList.remove('edit-text');
+    editButton.classList.add('edit-icon');
+    editButton.style.backgroundColor = 'transparent';
+    editButton.innerHTML = '✏️';
+    document.getElementById('textarea-' + index).style.display = 'none';
 
-        const editButton = document.getElementById('edit-' + index);
-        editButton.classList.remove('edit-text');
-        editButton.classList.add('edit-icon');
-        editButton.style.backgroundColor = 'transparent';
-        editButton.innerHTML = '✏️';
+    // Send a request to process the accepted section
+    const textareaValue = document.getElementById('textarea-' + index).value;
+    fetch(`/process-next-section/${index}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ value: textareaValue })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show next section if available
+            const nextIndex = index + 1;
+            const nextSection = document.getElementById('section-' + nextIndex);
+            if (nextSection) {
+                nextSection.classList.add('visible');
+                
+                // Update the textarea of the next section
+                const nextTextarea = document.getElementById('textarea-' + nextIndex);
+                if (nextTextarea) {
+                    nextTextarea.value = data.sections[nextIndex].VALUE;
+                }
 
-        document.getElementById('textarea-' + index).style.display = 'none';
-
-        const nextSection = document.getElementById('section-' + (index + 1));
-        if (nextSection) {
-            nextSection.classList.add('visible');
-            nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-            // If all sections are accepted, show the download button
-            document.getElementById('download-btn').style.display = 'block';
-            document.getElementById('download-word-btn').style.display = 'block';
-        }
-
-        document.querySelectorAll('li').forEach((section, i) => {
-            if (acceptedSections.has(i)) {
-                section.classList.add('visible');
+                nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                // If all sections are accepted, show the download button
+                document.getElementById('download-btn').style.display = 'block';
+                document.getElementById('download-word-btn').style.display = 'block';
             }
-        });
-    }
-   </script>
+        } else {
+            console.error('Error processing section:', data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+
+}
+
+    // Ensure previously accepted sections remain visible
+    document.querySelectorAll('li').forEach((section, i) => {
+        if (acceptedSections.has(i)) {
+            section.classList.add('visible');
+        }
+    });
+
+
+</script>
 </body>
 </html>
