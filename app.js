@@ -33,74 +33,127 @@ const getRandomNumber = () => Math.floor(Math.random() * 1000);
 
 // PDF Download Route
 app.post("/download-pdf", (req, res) => {
-  try {
-    const doc = new PDFDocument();
-    res.setHeader("Content-Disposition", 'attachment; filename="Evaluation_Results.pdf"');
-    res.setHeader("Content-Type", "application/pdf");
-    doc.pipe(res);
-
-    doc.fontSize(25).text("Evaluation Results", { align: "center" });
-    doc.moveDown();
-
-    if (torObject) {
-      const sections = torObject.getSectionsForRendering();
-      sections.forEach((section, index) => {
-        doc.fontSize(18).text(section.NAME, { align: "left" });
-        doc.fontSize(12).text(section.VALUE, { align: "left" });
-        if (index < sections.length - 1) doc.moveDown(1);
-      });
+    try {
+      const doc = new PDFDocument();
+      res.setHeader("Content-Disposition", 'attachment; filename="Evaluation_Results.pdf"');
+      res.setHeader("Content-Type", "application/pdf");
+      doc.pipe(res);
+  
+      doc.fontSize(25).text("Evaluation Results", { align: "center" });
+      doc.moveDown();
+  
+      // Add Type of Evaluation if available
+      if (torObject && torObject.getTypeOfEvaluation()) {
+        doc.fontSize(18).text(`Type of Evaluation:`, { align: "left" });
+        doc.fontSize(12).text(torObject.getTypeOfEvaluation(), { align: "left" });
+        doc.moveDown();
+      }
+  
+      // Add sections
+      if (torObject) {
+        const sections = torObject.getSectionsForRendering();
+        sections.forEach((section, index) => {
+          if (index === 0) {
+            doc.fontSize(18).text(section.NAME, { align: "left" });
+            doc.fontSize(12).text(section.VALUE, { align: "left" });
+            doc.moveDown();
+            
+            // Add Starting Date after section 0 and before section 1
+            if (torObject.getStartingDate()) {
+              doc.fontSize(18).text(`Starting Date: `, { align: "left" });
+                doc.fontSize(12).text(torObject.getStartingDate(), { align: "left" });
+              doc.moveDown();
+            }
+          } else {
+            doc.fontSize(18).text(section.NAME, { align: "left" });
+            doc.fontSize(12).text(section.VALUE, { align: "left" });
+            if (index < sections.length - 1) doc.moveDown(1);
+          }
+        });
+      }
+  
+      doc.end();
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).send("Error generating PDF.");
     }
+  });
 
-    doc.end();
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    res.status(500).send("Error generating PDF.");
-  }
-});
-
-// Word Document Download Route
+  // Word Document Download Route
 app.post("/download-word", (req, res) => {
-  try {
-    const sections = [
-      {
-        properties: {},
-        children: [
-          new Paragraph({
-            children: [new TextRun({ text: "Evaluation Results", bold: true, size: 48 })],
-            alignment: "center",
-            spacing: { after: 10 },
-          }),
-        ],
-      },
-    ];
-
-    if (torObject) {
-      const renderedSections = torObject.getSectionsForRendering();
-      renderedSections.forEach((section) => {
+    try {
+      const sections = [
+        {
+          properties: {},
+          children: [
+            new Paragraph({
+              children: [new TextRun({ text: "Evaluation Results", bold: true, size: 48 })],
+              alignment: "center",
+              spacing: { after: 10 },
+            }),
+          ],
+        },
+      ];
+  
+      // Add Type of Evaluation if available
+      if (torObject && torObject.getTypeOfEvaluation()) {
         sections[0].children.push(new Paragraph({
-          text: section.NAME,
+          text: `Type of Evaluation: ${torObject.getTypeOfEvaluation()}`,
           heading: "Heading2",
           spacing: { after: 10 },
         }));
-        sections[0].children.push(new Paragraph({
-          text: section.VALUE,
-          spacing: { after: 10 },
-        }));
+      }
+  
+      // Add sections with Starting Date after section 0, and skip section 7
+      if (torObject) {
+        const renderedSections = torObject.getSectionsForRendering();
+        renderedSections.forEach((section, index) => {
+          if (index === 0) {
+            sections[0].children.push(new Paragraph({
+              text: section.NAME,
+              heading: "Heading2",
+              spacing: { after: 10 },
+            }));
+            sections[0].children.push(new Paragraph({
+              text: section.VALUE,
+              spacing: { after: 10 },
+            }));
+  
+            // Add Starting Date after section 0
+            if (torObject.getStartingDate()) {
+              sections[0].children.push(new Paragraph({
+                text: `Starting Date: ${torObject.getStartingDate()}`,
+                heading: "Heading2",
+                spacing: { after: 10 },
+              }));
+            }
+          } else if (index !== 7) { // Skip section 7
+            sections[0].children.push(new Paragraph({
+              text: section.NAME,
+              heading: "Heading2",
+              spacing: { after: 10 },
+            }));
+            sections[0].children.push(new Paragraph({
+              text: section.VALUE,
+              spacing: { after: 10 },
+            }));
+          }
+        });
+      }
+      
+      const doc = new Document({ sections });
+  
+      Packer.toBuffer(doc).then((buffer) => {
+        res.setHeader("Content-Disposition", 'attachment; filename="Evaluation_Results.docx"');
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        res.send(buffer);
       });
+    } catch (error) {
+      console.error("Error generating Word document:", error);
+      res.status(500).send("Error generating Word document.");
     }
-
-    const doc = new Document({ sections });
-
-    Packer.toBuffer(doc).then((buffer) => {
-      res.setHeader("Content-Disposition", 'attachment; filename="Evaluation_Results.docx"');
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-      res.send(buffer);
-    });
-  } catch (error) {
-    console.error("Error generating Word document:", error);
-    res.status(500).send("Error generating Word document.");
-  }
-});
+  });
+  
 
 // File Upload and Initial Section Processing
 app.post("/upload", upload.single("file"), async (req, res) => {
@@ -160,6 +213,7 @@ app.post("/process-next-section/:index", async (req, res) => {
     try {
         const index = parseInt(req.params.index, 10);
         const selectedParameters = Array.isArray(req.body.parameters) ? req.body.parameters : [];
+        const calledFromSave = req.body.calledFromSave;
   
         if (isNaN(index)) {
             return res.status(400).json({ success: false, message: "Invalid index parameter." });
@@ -171,7 +225,8 @@ app.post("/process-next-section/:index", async (req, res) => {
   
         let sections = torObject.getSectionsForRendering();
         const nextSection = sections[index + 1] // Ensure nextSection is never undefined
-  
+        const systemPrompt = torObject.getSystemPrompt();
+        console.log('SYSTEM PROMPT',systemPrompt);
         if (selectedParameters.length > 0) {
             torObject.addEvaluationCriteriaSections(selectedParameters);
             sections = torObject.getSectionsForRendering();
@@ -181,6 +236,19 @@ app.post("/process-next-section/:index", async (req, res) => {
             console.log("Next section key:", nextSectionKey);
   
             if (nextSectionKey) {
+
+                 // Uncomment the OpenAI API code to process the first section dynamically
+        // const gptResponse = await openai.chat.completions.create({
+        //   model: "gpt-4",
+        //   messages: [
+        //     { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
+        //     { role: "user", content: prompt }
+        //   ]
+        // });
+
+        // torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
+
+        // Fallback response for now
                 torObject.updateSection(nextSectionKey, `Processed value: ${getRandomNumber()}`);
             }
             sections = torObject.getSectionsForRendering();
@@ -204,8 +272,9 @@ app.post("/process-next-section/:index", async (req, res) => {
        console.log("Current section key:", currentSectionKey);
        console.log("Next section key:", nextSectionKey);
        if(nextSectionKey) {
+    
        torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}`);
-      
+    
         return res.json({
             success: true,
             message: "Section processed successfully.",
@@ -227,6 +296,57 @@ app.post("/process-next-section/:index", async (req, res) => {
         res.status(500).json({ success: false, message: "Server error." });
     }
 });
+
+app.post("/save-start-date", (req, res) => {
+    try {
+        const startingDate = req.body.startDate;  // Match this with the client-side field
+        if (!torObject) {
+            return res.status(400).json({ success: false, message: "TORObject is not initialized." });
+        }
+
+        console.log("Starting date:", startingDate);
+
+        torObject.setStartingDate(startingDate);  // Assume setStartingDate is defined on torObject
+        res.json({
+            success: true,
+            message: "Starting date saved successfully.",
+            additionalInfo: torObject.getAdditionalInfoForRendering(),
+        });
+
+        console.log("Starting date saved successfully.");
+
+        console.log("Additional info:", torObject.getAdditionalInfoForRendering());
+    } catch (error) {
+        console.error("Error saving starting date:", error);
+        res.status(500).json({ success: false, message: "Server error." });
+    }
+}
+);
+app.post("/save-evaluation-type", (req, res) => {
+    try {
+        const evaluationType = req.body.evaluationType;  // Match this with the client-side field
+        if (!torObject) {
+            return res.status(400).json({ success: false, message: "TORObject is not initialized." });
+        }
+
+        console.log("Evaluation type:", evaluationType);
+
+        torObject.setTypeOfEvaluation(evaluationType);  // Assume setTypeOfEvaluation is defined on torObject
+        res.json({
+            success: true,
+            message: "Evaluation type saved successfully.",
+            sections: torObject.getSectionsForRendering(),
+        });
+
+        console.log("Evaluation type saved successfully.");
+        console.log("Evaluation type:", torObject.getAdditionalInfoForRendering());
+        torObject.updateSystemPrompt();
+    } catch (error) {
+        console.error("Error saving evaluation type:", error);
+        res.status(500).json({ success: false, message: "Server error." });
+    }
+});
+
 
 // Update TOR Section
 app.post("/update-tor/:index", (req, res) => {
@@ -264,6 +384,7 @@ app.post("/update-tor/:index", (req, res) => {
     res.status(500).json({ success: false, message: "Server error." });
   }
 });
+
 
 app.listen(3000, () => {
   console.log("Server running on port 3000");

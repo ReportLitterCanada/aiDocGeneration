@@ -180,6 +180,53 @@
             margin-top: 10px;
             font-weight: bold;
         }
+
+#evaluation-type,
+#date-section {
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+#evaluation-type select,
+#date-section input[type="date"] {
+    margin-top: 15px;
+}
+
+#evaluation-type .buttons,
+#date-section .buttons {
+    text-align: right;
+}
+.checkbox-container {
+    display: flex;
+    flex-direction: column; /* Stack items vertically */
+    gap: 15px; /* Space between each row */
+    margin-bottom: 20px; /* Space below the container */
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between the label and checkbox */
+}
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top: 4px solid #3498db;
+    width: 12px;
+    height: 12px;
+    animation: spin 1s linear infinite;
+    display: none; /* Hide by default */
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
     </style>
 </head>
 
@@ -187,72 +234,159 @@
     <h1>Evaluation Results</h1>
     <ul>
 
-        <label for="typeOfEvaluation">Type of Evaluation:</label>
-        <select id="typeOfEvaluation" name="typeOfEvaluation" required>
-            <option value="" disabled selected>Select type</option>
-            <option value="Project Evaluation">Project Evaluation</option>
-            <option value="Outcome Evaluation">Outcome Evaluation</option>
-            <option value="Thematic Evaluation">Thematic Evaluation</option>
-        </select>
-        
-        <div class="buttons">
-            <button id="save-evaluation-type" onclick="saveEvaluationType()">Save Evaluation Type</button>
+        <div id="evaluation-type">
+            <strong for="typeOfEvaluation">Type of Evaluation:</strong>
+            <select id="typeOfEvaluation" name="typeOfEvaluation" required >
+                <option value="" disabled selected>Select type</option>
+                <option value="Project Evaluation">Project Evaluation</option>
+                <option value="Outcome Evaluation">Outcome Evaluation</option>
+                <option value="Thematic Evaluation">Thematic Evaluation</option>
+            </select>
+            <div class="buttons">
+                <button id="save-evaluation-type" onclick="saveEvaluationType()">Save Evaluation Type</button>
+            </div>
+            <div id="selected-evaluation-type" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                <!-- Selected type will be shown here -->
+            </div>
         </div>
-
-        <% sections.forEach(function(section, index) { %>
-            <li id="section-<%= index %>" class="<%= index === 0 ? '' : '' %>">
-
-                <!-- Show extraPromptParameters dropdown first if present -->
-                <div id="extraPrompt-<%= index %>">
-                    <% if (section.extraPromptParameters && section.extraPromptParameters.length> 0) { %>
-                        <strong for="extraPrompt-<%= index %>">Which evaluation criteria do you want to include in the Terms of Reference?</strong><br />
-                        <% section.extraPromptParameters.forEach(function(parameter) { %>
-                            <label for="<%= parameter.code %>">
-                                <%= parameter.name %>
-                            </label>
-                            <input type="checkbox" id="<%= parameter.code %>" name="<%= parameter.code %>"
-                                value="<%= parameter.code %>" />
-                            <% }); %>
-
-                                <div class="buttons">
-                                    <button id="save-prompt-<%= index %>"
-                                        onclick="savePromptForSection(<%= index %>)">Save</button>
+    
+            <% sections.forEach(function(section, index) { %>
+                <li id="section-<%= index %>" class="<%= index === 0 ? '' : '' %>">
+                    <!-- Show extraPromptParameters dropdown first if present -->
+                    <div id="extraPrompt-<%= index %>">
+                        <% if (section.extraPromptParameters && section.extraPromptParameters.length > 0) { %>
+                            
+                            <strong for="extraPrompt-<%= index %>">Which evaluation criteria do you want to include in the Terms of Reference?</strong>
+                            <div style="margin-top: 20px;">
+                            <% section.extraPromptParameters.forEach(function(parameter) { %>
+                               
+                                <div class="checkbox-item">
+                                    <label for="<%= parameter.code %>">
+                                        <%= parameter.name %>
+                                    </label>
+                                    <input type="checkbox" id="<%= parameter.code %>" name="<%= parameter.code %>"
+                                        value="<%= parameter.code %>" />
                                 </div>
-                                <% } else { %>
-                                    <!-- If no extraPromptParameters, show section name and value directly -->
-                                    <strong>
-                                        <%= section.NAME %>:
-                                    </strong>
-                                    <div id="content-<%= index %>">
-                                        <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
-                                        <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>"
-                                            style="display: none;" />
-                                    </div>
-                                    <div class="buttons">
-                                        <button onclick="editSection(<%= index %>)" id="edit-<%= index %>"
-                                            class="edit-text">Edit</button>
-                                        <button onclick="acceptSection(<%= index %>)"
-                                            id="accept-<%= index %>">Accept</button>
-                                        <button onclick="saveSection(<%= index %>)" id="save-<%= index %>"
-                                            style="display:none;">Save</button>
-                                        <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>"
-                                            style="display:none;">Discard</button>
-                                    </div>
-                                    <% } %>
-                </div>
-            </li>
+                                
+                            <% }); %>
+                            </div>
+                            <div class="buttons">
+                                <button id="save-prompt-<%= index %>"
+                                    onclick="savePromptForSection(<%= index %>)">Save</button>
+                            </div>
+                        <% } else { %>
+                            <!-- If no extraPromptParameters, show section name and value directly -->
+                            <strong>
+                                <%= section.NAME %>:
+                            </strong>
+                            <div id="content-<%= index %>">
+                                <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
+                                <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>" style="display: none;" />
+                                <div id="short-value-<%= index %>" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                                    <!-- Short value will be displayed here -->
+                                </div>
+                            </div>
+        
+                            <div class="buttons">
+                                <button onclick="editSection(<%= index %>)" id="edit-<%= index %>"
+                                    class="edit-text">Edit</button>
+                                    <button onclick="acceptSection(<%= index %>)" id="accept-<%= index %>" class="accept-button">
+                                        <span class="accept-text">Accept</span>
+                                        <div id="spinner-<%= index %>" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                                    </button>
+                                <button onclick="saveSection(<%= index %>)" id="save-<%= index %>"
+                                    style="display:none;">Save</button>
+                                <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>"
+                                    style="display:none;">Discard</button>
+                            </div>
+                        <% } %>
+                    </div>
+                </li>
+        
+                <% if (index === 0) { %>
+                    <div id="date-section" style="display: none;">
+                        <strong for="startDate">Starting Date:</strong><br/>     
+                        <div id="the-date">
+                            <div style="margin-top: 20px;">   
+                                <input type="date" id="startDate" name="startDate" />
+                            </div>
+                            <div class="buttons">
+                                <button id="save-start-date" onclick="saveStartDate()">
+                                    Save
+                                    <div id="spinner-start-date" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                                </button>
+                            </div>
+                        </div>
+                        <div id="selected-date" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                            <!-- Selected date will be shown here -->
+                        </div>
+                    </div>
+                    
+                    
+                <% } %>
             <% }); %>
-    </ul>
+        </ul>
+        
+        <div style="display: flex; justify-content: center; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto;">
+            <button id="download-btn" onclick="downloadFile()">Download PDF</button>
+            <button id="download-word-btn" onclick="downloadWordFile()">Download Word</button>
+        </div>
+        
 
-
-    <div
-        style="display: flex; justify-content: center; align-items: center; gap: 10px; max-width: 850px; margin: 0 auto;">
-        <button id="download-btn" onclick="downloadFile()">Download PDF</button>
-        <button id="download-word-btn" onclick="downloadWordFile()">Download Word</button>
-    </div>
 
     <script>
-        function saveEvaluationType() {
+
+function updateSelectedType() {
+        const selectElement = document.getElementById('typeOfEvaluation');
+        const selectedType = selectElement.options[selectElement.selectedIndex].text;
+        const displayElement = document.getElementById('selected-evaluation-type');
+        displayElement.textContent = `${selectedType}`;
+    }
+
+    function updateSelectedDate() {
+        const startDate = document.getElementById('startDate').value;
+        const displayElement = document.getElementById('selected-date');
+        displayElement.textContent = `${startDate}`;
+    }
+function saveStartDate() {
+        const startDate = document.getElementById('startDate').value;
+        
+        if (!startDate) {
+            alert('Please select a starting date.');
+            return;
+        }
+
+        // Store the starting date (send it to the server or save locally)
+        console.log('Starting Date:', startDate);
+        fetch('/save-start-date', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ startDate })  // Match this to the server-side expectation
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Starting date saved:', data);
+
+            
+              
+                document.getElementById('the-date').style.display = 'none';
+                updateSelectedDate();
+
+                // Now proceed to section 1
+                acceptSection(0, false,true); // 'true' indicates this was called from save
+            } else {
+                console.error('Failed to save starting date:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+function saveEvaluationType() {
     const typeOfEvaluation = document.getElementById('typeOfEvaluation').value;
 
     if (!typeOfEvaluation) {
@@ -262,20 +396,39 @@
 
     // Store the type of evaluation (send it to the server or save locally)
     console.log('Evaluation Type:', typeOfEvaluation);
-    
+    fetch('/save-evaluation-type', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ evaluationType: typeOfEvaluation })  // Match this to the server-side expectation
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Evaluation type saved:', data);
+           
+        } else {
+            console.error('Failed to save evaluation type:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
 
     // Hide the evaluation type dropdown and save button
     document.getElementById('typeOfEvaluation').style.display = 'none';
     document.getElementById('save-evaluation-type').style.display = 'none';
 
+
     // Show the first section
     const firstSection = document.getElementById('section-0');
+    updateSelectedType();
     if (firstSection) {
         firstSection.classList.add('visible');
     }
 }
-
-        function downloadWordFile() {
+  function downloadWordFile() {
             fetch('/download-word', {
                 method: 'POST',
                 headers: {
@@ -332,89 +485,108 @@
         let sections = <%- JSON.stringify(sections) %>;
      
         function savePromptForSection(index) {
-            const section = sections[index];
-            const selectedParameters = section.extraPromptParameters
-                .map(parameter => document.getElementById(parameter.code).checked ? parameter.code : null)
-                .filter(value => value !== null);
+    const section = sections[index];
+    const selectedParameters = section.extraPromptParameters
+        .map(parameter => document.getElementById(parameter.code).checked ? parameter.code : null)
+        .filter(value => value !== null);
 
-            // Prepare the data to send to the server
-            const requestData = { parameters: selectedParameters };
+    // Prepare the data to send to the server
+    const requestData = { parameters: selectedParameters };
 
-            // Make a fetch request to process the prompts and get the updated value
-            fetch(`/process-next-section/${index}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(requestData)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        sections = data.sections;
-                        console.log('Updated sections:', sections); // Debugging line
+    // Show the spinner for the current section
+    const spinner = document.getElementById('spinner-' + index);
+    if (spinner) {
+        spinner.style.display = 'inline-block';
+    }
 
-                        const nextIndex = index + 1;
-                        const nextSection = data.sections[nextIndex];
-                        const currentSectionElement = document.getElementById('section-' + index);
-                        console.log('current section element', currentSectionElement);
-                        if (currentSectionElement) {
-                    currentSectionElement.style.display='none';  
-                       }
+    // Make a fetch request to process the prompts and get the updated value
+    fetch(`/process-next-section/${index}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            sections = data.sections;
+            console.log('Updated sections:', sections); // Debugging line
 
-                        if (nextSection) {
-                            // Create and append the new section if not already present
-                            let nextSectionElement = document.getElementById('section-' + nextIndex);
+            const nextIndex = index + 1;
+            const nextSection = data.sections[nextIndex];
+            const currentSectionElement = document.getElementById('section-' + index);
+            console.log('current section element', currentSectionElement);
+            
+            if (currentSectionElement) {
+                currentSectionElement.style.display = 'none';  
+            }
 
-                            if (!nextSectionElement) {
-                                // Create the section HTML
-                                nextSectionElement = document.createElement('li');
-                                nextSectionElement.id = 'section-' + nextIndex;
-                                nextSectionElement.classList.add('visible');
+            if (nextSection) {
+                // Create and append the new section if not already present
+                let nextSectionElement = document.getElementById('section-' + nextIndex);
 
-                                // Add the content HTML
-                                nextSectionElement.innerHTML = `
+                if (!nextSectionElement) {
+                    // Create the section HTML
+                    nextSectionElement = document.createElement('li');
+                    nextSectionElement.id = 'section-' + nextIndex;
+                    nextSectionElement.classList.add('visible');
+
+                    // Add the content HTML
+                    nextSectionElement.innerHTML = `
                         <strong>${nextSection.NAME}:</strong>
                         <div id="content-${nextIndex}">
                             <textarea id="textarea-${nextIndex}" readonly>${nextSection.VALUE}</textarea>
                             <input type="text" id="input-${nextIndex}" value="${nextSection.VALUE}" style="display: none;" />
+                            <div id="short-value-${nextIndex}" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                                <!-- Short value will be displayed here -->
+                            </div>
                         </div>
                         <div class="buttons">
                             <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
-                            <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">Accept</button>
+                            <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">
+                                <span class="accept-text">Accept</span>
+                                <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner element -->
+                            </button>
                             <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">Save</button>
                             <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
                         </div>
                     `;
 
-                                document.querySelector('ul').appendChild(nextSectionElement);
-                            } else {
-                                nextSectionElement.classList.add('visible');
-                            }
+                    document.querySelector('ul').appendChild(nextSectionElement);
+                } else {
+                    nextSectionElement.classList.add('visible');
+                }
 
-                            // Scroll to the next section
-                            nextSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        } else {
-                            // If all sections are accepted, show the download button
-                            document.getElementById('download-btn').style.display = 'block';
-                            document.getElementById('download-word-btn').style.display = 'block';
-                        }
-                    } else {
-                        console.error('Server error:', data.message);
-                    }
-                })
-                .catch(error => console.error('Error processing prompts:', error));
+                // Scroll to the next section
+                nextSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                // If all sections are accepted, show the download button
+                document.getElementById('download-btn').style.display = 'block';
+                document.getElementById('download-word-btn').style.display = 'block';
+            }
+        } else {
+            console.error('Server error:', data.message);
         }
+    })
+    .catch(error => console.error('Error processing prompts:', error))
+    .finally(() => {
+        // Hide the spinner after the request is complete
+        if (spinner) {
+            spinner.style.display = 'none';
+        }
+    });
+}
 
-
-        function editSection(index) {
+function editSection(index) {
             const textarea = document.getElementById('textarea-' + index);
             const input = document.getElementById('input-' + index);
             const editButton = document.getElementById('edit-' + index);
             const saveButton = document.getElementById('save-' + index);
             const discardButton = document.getElementById('discard-' + index);
             const acceptButton = document.getElementById('accept-' + index);
-
+            const shortValueDiv = document.getElementById('short-value-' + index);
+console.log('TEXTAREA',textarea);
             // Initialize input field with textarea value
             input.value = textarea.value;
             textarea.style.display = 'none';
@@ -422,6 +594,7 @@
 
             editButton.style.display = 'none';
             acceptButton.style.display = 'none';
+            shortValueDiv.style.display = 'none';
             saveButton.style.display = 'inline-block';
             discardButton.style.display = 'inline-block';
         }
@@ -430,9 +603,11 @@
         function saveSection(index) {
             const textarea = document.getElementById('textarea-' + index);
             const input = document.getElementById('input-' + index);
+            const shortValueDiv = document.getElementById('short-value-' + index);
             const value = input.value;
 
             textarea.value = value;
+     
             fetch(`/update-tor/${index}`, {
                 method: 'POST',
                 headers: {
@@ -442,14 +617,22 @@
             })
                 .then(response => response.json())
                 .then(data => {
-                    textarea.style.display = 'block';
+                    textarea.style.display = 'none';
                     input.style.display = 'none';
 
                     document.getElementById('edit-' + index).style.display = 'inline-block';
                     document.getElementById('save-' + index).style.display = 'none';
                     document.getElementById('discard-' + index).style.display = 'none';
-
-                    acceptSection(index, true); // Handle the accepted section properly.
+                    if (textarea) {
+                textarea.style.display = 'none';
+            }
+            // Populate the short value div
+            if (shortValueDiv) {
+                
+                shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+                shortValueDiv.style.display = 'block';
+            }
+                    acceptSection(index, true,false); // Handle the accepted section properly.
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -462,6 +645,11 @@
             document.getElementById('save-' + index).style.display = 'none';
             document.getElementById('discard-' + index).style.display = 'none';
             document.getElementById('accept-' + index).style.display = 'none';
+            const shortValueDiv = document.getElementById('short-value-' + index);
+
+        
+            const textarea = document.getElementById('textarea-' + index);
+
             const editButton = document.getElementById('edit-' + index);
             editButton.classList.remove('edit-text');
             editButton.classList.add('edit-icon');
@@ -469,96 +657,162 @@
             editButton.innerHTML = '✏️';
             editButton.style.display = 'inline-block';
 
-            const contentDiv = document.getElementById('content-' + index);
+         
             // Hide input and textarea
             input.style.display = 'none';
             textarea.style.display = 'none';
-
-            // Show contentDiv with the current input value
-            contentDiv.style.display = 'none';
-            contentDiv.textContent = input.value;
+            
+           
+            if (shortValueDiv) {
+            shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+            shortValueDiv.style.display = 'block';
+        }
 
 
             // If needed, hide the accept button after discarding
             // acceptButton.style.display = 'none'; 
         }
-        function acceptSection(index, calledFromSave = false) {
-    acceptedSections.add(index);
-
-    // Hide the accept button and update the edit button
+     
+        function acceptSection(index, calledFromSave = false, calledFromStartDate = false) {
     const acceptButton = document.getElementById('accept-' + index);
     const editButton = document.getElementById('edit-' + index);
     const textarea = document.getElementById('textarea-' + index);
-    
-    if (acceptButton) acceptButton.style.display = 'none';
-    if (editButton) {
-        editButton.classList.remove('edit-text');
-        editButton.classList.add('edit-icon');
-        editButton.style.backgroundColor = 'transparent';
-        editButton.innerHTML = '✏️';
+    const spinner = document.getElementById('spinner-' + index); // Spinner element
+    const acceptText = acceptButton ? acceptButton.querySelector('.accept-text') : null;
+    const shortValueDiv = document.getElementById('short-value-' + index);
+
+    // Ensure the spinner is visible
+    if (spinner) {
+        spinner.style.display = 'inline-block';
+        if (acceptText) acceptText.style.display = 'none'; // Hide Accept text
     }
-    if (textarea) textarea.style.display = 'none';
 
-    // Send a request to process the accepted section
-    const textareaValue = textarea ? textarea.value : '';
-    fetch(`/process-next-section/${index}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ value: textareaValue, calledFromSave })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('DATA', data);
-            // Proceed to the next section
-            const nextIndex = index + 1;
-            const nextSection = document.getElementById('section-' + nextIndex);
-
-            if (nextSection) {
-                // Show and update the next section if it already exists
-                nextSection.classList.add('visible');
-                const nextTextarea = document.getElementById('textarea-' + nextIndex);
-                if (nextTextarea) {
-                    nextTextarea.value = data.sections[nextIndex].VALUE;
-                }
-                nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else if (data.sections[nextIndex]) {
-                console.log('This condition');
-                // Create and display the new next section dynamically
-                const nextSectionElement = document.createElement('li');
-                nextSectionElement.id = 'section-' + nextIndex;
-                nextSectionElement.classList.add('visible');
-
-                // Add the content HTML
-                nextSectionElement.innerHTML = `
-                    <strong>${data.sections[nextIndex].NAME}:</strong>
-                    <div id="content-${nextIndex}">
-                        <textarea id="textarea-${nextIndex}" readonly>${data.sections[nextIndex].VALUE}</textarea>
-                        <input type="text" id="input-${nextIndex}" value="${data.sections[nextIndex].VALUE}" style="display: none;" />
-                    </div>
-                    <div class="buttons">
-                        <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
-                        <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">Accept</button>
-                        <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">Save</button>
-                        <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
-                    </div>
-                `;
-
-                // Append the new section to the section list
-                document.querySelector('ul').appendChild(nextSectionElement);
-            }
-        } else {
-            console.error('Error processing section:', data.message);
-              // All sections are accepted, show the download buttons
-              document.getElementById('download-btn').style.display = 'block';
-                document.getElementById('download-word-btn').style.display = 'block';
+    // Hide the accept button and update the edit button after processing
+    if (index == 0) {
+        if (acceptButton) {
+            acceptButton.style.display = 'none';
         }
-    })
-    .catch(error => console.error('Error:', error));
+        if (editButton) {
+            editButton.classList.remove('edit-text');
+            editButton.classList.add('edit-icon');
+            editButton.style.backgroundColor = 'transparent';
+            editButton.innerHTML = '✏️';
+        }
+        if (textarea) {
+            textarea.style.display = 'none';
+        }
+        // Populate the short value div
+        if (shortValueDiv) {
+            shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+            shortValueDiv.style.display = 'block';
+        }
+    }
+
+    if (index === 0 && !calledFromStartDate) {
+        // Show the date section if the current section is 0
+        document.getElementById('date-section').style.display = 'block';
+        return; // Stop processing until the date is saved
+    }
+
+    // Simulate a network delay
+    setTimeout(() => {
+        // Send a request to process the accepted section
+        const textareaValue = textarea ? textarea.value : '';
+        fetch(`/process-next-section/${index}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ value: textareaValue, calledFromSave, calledFromStartDate })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('DATA', data);
+                // Proceed to the next section
+                const nextIndex = index + 1;
+
+                const nextSection = document.getElementById('section-' + nextIndex);
+
+                if (nextSection) {
+                    // Show and update the next section if it already exists
+                    nextSection.classList.add('visible');
+                    const nextTextarea = document.getElementById('textarea-' + nextIndex);
+                    if (nextTextarea) {
+                        nextTextarea.value = data.sections[nextIndex].VALUE;
+                    }
+                    nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else if (data.sections[nextIndex]) {
+                    console.log('This condition');
+                    // Create and display the new next section dynamically
+                    const nextSectionElement = document.createElement('li');
+                    nextSectionElement.id = 'section-' + nextIndex;
+                    nextSectionElement.classList.add('visible');
+
+                    // Add the content HTML
+                    nextSectionElement.innerHTML = `
+                        <strong>${data.sections[nextIndex].NAME}:</strong>
+                        <div id="content-${nextIndex}">
+                            <textarea id="textarea-${nextIndex}" readonly>${data.sections[nextIndex].VALUE}</textarea>
+                            <input type="text" id="input-${nextIndex}" value="${data.sections[nextIndex].VALUE}" style="display: none;" />
+                            <div id="short-value-${nextIndex}" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                                <!-- Short value will be displayed here -->
+                            </div>
+                        </div>
+                        <div class="buttons">
+                            <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
+                            <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">
+                                <span class="accept-text">Accept</span>
+                                <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner element -->
+                            </button>
+                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">Save</button>
+                            <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
+                        </div>
+                    `;
+
+                    // Append the new section to the section list
+                    document.querySelector('ul').appendChild(nextSectionElement);
+                }
+            } else {
+                console.error('Error processing section:', data.message);
+                // All sections are accepted, show the download buttons
+                document.getElementById('download-btn').style.display = 'block';
+                document.getElementById('download-word-btn').style.display = 'block';
+            }
+        })
+        .catch(error => console.error('Error:', error))
+        .finally(() => {
+            // Hide the spinner after the request is complete
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
+
+            // Hide the accept button and update the edit button after processing
+            if (acceptButton) {
+                acceptButton.style.display = 'none';
+            }
+            if (editButton) {
+                editButton.classList.remove('edit-text');
+                editButton.classList.add('edit-icon');
+                editButton.style.backgroundColor = 'transparent';
+                editButton.innerHTML = '✏️';
+            }
+            if (textarea) {
+                textarea.style.display = 'none';
+            }
+            i
+            // Populate the short value div
+            if (shortValueDiv&&!calledFromSave) {
+                
+                shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+                shortValueDiv.style.display = 'block';
+            }
+        });
+    }, 2000); // Simulate a 2-second delay
 }
-      // Ensure previously accepted sections remain visible
+
+   
+        // Ensure previously accepted sections remain visible
         document.querySelectorAll('li').forEach((section, i) => {
             console.log('Checking section:', i, acceptedSections.has(i));
             if (acceptedSections.has(i)) {

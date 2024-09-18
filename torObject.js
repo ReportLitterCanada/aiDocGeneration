@@ -13,7 +13,7 @@ class TORObject {
       objectives: new TORSection('007', 'Objectives', 'Objectives', 7, "", {}), 
       
       evaluationCriteriaSection: new TORSection(
-        '013', 
+        '014', 
         'Evaluation Criteria', 
         'Which evaluation criteria do you want to include in the Terms of Reference?', 
         14, 
@@ -30,6 +30,7 @@ class TORObject {
     };
     this.typeOfEvaluation = '';  // Holds the selected evaluation type
     this.startingDate = '';  // Holds the selected start date
+    this.systemPrompt = '';  // System prompt with dynamic content
     // Call generatePrompt for each section to initialize prompts with dynamic content
     Object.values(this.sections).forEach(section => section.generatePrompt());
   }
@@ -62,6 +63,38 @@ class TORObject {
     typeOfEvaluation: this.typeOfEvaluation,
     startingDate: this.startingDate
   };
+}
+getStartingDate() {
+  return this.startingDate;
+}
+getTypeOfEvaluation() {
+  return this.typeOfEvaluation;
+}
+
+ // Method to update the system prompt dynamically
+ updateSystemPrompt() {
+  this.systemPrompt = `
+  With this task, you will be asked to create the Terms of Reference (ToR) for the evaluation of a UNDP project – so called “evaluation terms of reference”.
+
+The type of evaluation you will be dealing with is: ${this.typeOfEvaluation}.
+The TOR is a written document which defines the scope, requirements and expectations of the evaluation and serves as a guide and point of reference throughout the evaluation.
+Quality TOR should be explicit and focused, providing a clear mandate for the evaluation team on what is being evaluated and why, who should be involved in the evaluation process, and the expected outputs. TORs should be unique to the specific circumstances and purpose of each individual evaluation. Since the TOR play a critical role in establishing the quality criteria and use of the evaluation report, adequate time should be allocated to their development.
+
+The outcome, project, thematic area, or any other initiatives selected for evaluation, along with the timing, purpose, duration, available budget and scope of the evaluation, will dictate much of the substance of the TOR. However, because an evaluation cannot address all issues, developing the TOR involves strategic choices about the specific focus, parameters and outputs for the evaluation, given available resources.
+
+The initial draft TOR should be developed by the evaluation manager with input from the evaluation commissioner and shared with the evaluation reference group for review and comment. Regional evaluation focal points and others with the necessary expertise may comment on the draft TOR to ensure that they meet corporate quality standards.
+Writing TORs and engaging relevant stakeholders can be a time-consuming exercise. Therefore, it is recommended that this process is started three to six months before the proposed commencement of the evaluation, depending on the scope and complexity of the evaluation and the numbers of stakeholders involved.
+
+The TOR template is intended to help UNDP programme units create TORs based on quality standards for evaluations consistent with evaluation good practice. When drafting TORs, programme units should consider how the evaluation covers UNDP quality standards for programming, as relevant and required.
+
+The TOR should retain enough flexibility on the evaluation methodology for the evaluation team to determine the best methods and tools for collecting and analyzing data. For example, the TOR might suggest using questionnaires, field visits and interviews, but the evaluation team should be able to revise the approach in consultation with the evaluation manager and key stakeholders. These changes in approach should be agreed and reflected clearly in the inception report.
+
+  `;
+}
+
+// Method to get the system prompt
+getSystemPrompt() {
+  return this.systemPrompt;
 }
 
   addEvaluationCriteriaSections(selectedCriteria) {
