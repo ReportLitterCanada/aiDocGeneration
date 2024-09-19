@@ -9,7 +9,8 @@ const PDFDocument = require("pdfkit");
 const { Document, Packer, Paragraph, TextRun } = require("docx");
 const path = require("path");
 const app = express();
-
+const https = require('https');
+const FormData = require('form-data');
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views")); // Correctly set the path to the views directory
 app.use(express.urlencoded({ extended: true }));
@@ -155,60 +156,104 @@ app.post("/download-word", (req, res) => {
   });
   
 
-// File Upload and Initial Section Processing
-app.post("/upload", upload.single("file"), async (req, res) => {
-  try {
-    let documentText = "";
-
-    if (req.file.mimetype === "application/pdf") {
-      const pdfData = await pdfParse(req.file.buffer);
-      documentText = pdfData.text;
-    } else {
-      documentText = await new Promise((resolve, reject) => {
-        textract.fromBufferWithName(req.file.originalname, req.file.buffer, (error, text) => {
-          if (error) reject(`Textract error: ${error.message}`);
-          else resolve(text);
+  app.post("/upload", upload.single("file"), async (req, res) => {
+    try {
+      let documentText = "";
+  
+      // Process the uploaded file
+      if (req.file.mimetype === "application/pdf") {
+        const pdfData = await pdfParse(req.file.buffer);
+        documentText = pdfData.text;
+      } else {
+        documentText = await new Promise((resolve, reject) => {
+          textract.fromBufferWithName(req.file.originalname, req.file.buffer, (error, text) => {
+            if (error) reject(`Textract error: ${error.message}`);
+            else resolve(text);
+          });
         });
-      });
-    }
-
-    torObject = new TORObject();
-    const sections = torObject.getSectionsForRendering();
-
-    if (sections.length > 0) {
-      const firstSection = sections[0];
-      const sectionKey = firstSection.NAME.toLowerCase().replace(/ /g, "");
-      const prompt = `${firstSection.prompt}: ${documentText}`;
-
-      try {
-        // Uncomment the OpenAI API code to process the first section dynamically
-        // const gptResponse = await openai.chat.completions.create({
-        //   model: "gpt-4",
-        //   messages: [
-        //     { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
-        //     { role: "user", content: prompt }
-        //   ]
-        // });
-
-        // torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
-
-        // Fallback response for now
-        torObject.updateSection(sectionKey, `Fallback response: ${getRandomNumber()}`);
-      } catch (error) {
-        console.warn("OpenAI API call failed, using fallback:", error);
-        torObject.updateSection(sectionKey, `OpenAI API call failed`);
       }
-
-      res.render("result", { sections: torObject.getSectionsForRendering() });
-    } else {
-      res.status(400).send("No sections found.");
+  
+      // Create form data for OpenAI upload
+      const form = new FormData();
+      form.append('file', req.file.buffer, req.file.originalname); // Adding the file buffer
+      form.append('purpose', 'fine-tune');  // Example purpose: fine-tune
+  console.log('FORM HEADERS', form.getHeaders());
+      // Options for the HTTPS request to OpenAI
+      const options = {
+        method: 'POST',
+        host: 'api.openai.com',
+        path: '/v1/uploads',
+        headers: {
+          'Authorization': `Bearer YOUR_OPENAI_API_KEY`,  // Replace with your OpenAI API key
+          ...form.getHeaders()
+        }
+      };
+  
+      // Make HTTPS request to upload the file
+      const openAiResponse = await new Promise((resolve, reject) => {
+        const request = https.request(options, (response) => {
+          let body = '';
+          response.on('data', (chunk) => {
+            body += chunk;
+          });
+  
+          response.on('end', () => {
+            if (response.statusCode === 200) {
+              resolve(JSON.parse(body));
+            } else {
+              reject(`OpenAI upload failed with status: ${response.statusCode}, body: ${body}`);
+            }
+          });
+        });
+  
+        request.on('error', (error) => {
+          reject(`OpenAI upload error: ${error.message}`);
+        });
+  
+        form.pipe(request);
+      });
+  
+      // Handle the uploaded file and process sections
+      if (openAiResponse && openAiResponse.id) {
+        torObject = new TORObject();
+        const sections = torObject.getSectionsForRendering();
+  
+        if (sections.length > 0) {
+          const firstSection = sections[0];
+          const sectionKey = firstSection.NAME.toLowerCase().replace(/ /g, "");
+          const prompt = `${firstSection.prompt}: ${documentText}`;
+  
+          try {
+            // Uncomment the OpenAI API code to process the first section dynamically
+            // const gptResponse = await openai.chat.completions.create({
+            //   model: "gpt-4",
+            //   messages: [
+            //     { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
+            //     { role: "user", content: prompt }
+            //   ]
+            // });
+  
+            // torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
+  
+            // Fallback response for now
+            torObject.updateSection(sectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
+          } catch (error) {
+            console.warn("OpenAI API call failed, using fallback:", error);
+            torObject.updateSection(sectionKey, `OpenAI API call failed`);
+          }
+  
+          res.render("result", { sections: torObject.getSectionsForRendering() });
+        } else {
+          res.status(400).send("No sections found.");
+        }
+      } else {
+        res.status(500).send("OpenAI upload failed.");
+      }
+    } catch (error) {
+      console.error("Error processing the request:", error);
+      res.status(500).send("An error occurred while processing your request.");
     }
-  } catch (error) {
-    console.error("Error processing the request:", error);
-    res.status(500).send("An error occurred while processing your request.");
-  }
-});
-
+  });
 app.post("/process-next-section/:index", async (req, res) => {
     try {
         const index = parseInt(req.params.index, 10);
@@ -226,30 +271,30 @@ app.post("/process-next-section/:index", async (req, res) => {
         let sections = torObject.getSectionsForRendering();
         const nextSection = sections[index + 1] // Ensure nextSection is never undefined
         const systemPrompt = torObject.getSystemPrompt();
-        console.log('SYSTEM PROMPT',systemPrompt);
         if (selectedParameters.length > 0) {
+         
             torObject.addEvaluationCriteriaSections(selectedParameters);
             sections = torObject.getSectionsForRendering();
             const theNextOne = sections[index + 1];
             const nextSectionKey = theNextOne? theNextOne.NAME.toLowerCase().replace(/ /g, "") : null;
         
-            console.log("Next section key:", nextSectionKey);
+  
   
             if (nextSectionKey) {
 
-                 // Uncomment the OpenAI API code to process the first section dynamically
+        //      //    Uncomment the OpenAI API code to process the first section dynamically
         // const gptResponse = await openai.chat.completions.create({
         //   model: "gpt-4",
         //   messages: [
-        //     { role: "system", content: "This is a conversation with a user uploading a document for analysis." },
+        //     { role: "system", content: systemPrompt },
         //     { role: "user", content: prompt }
         //   ]
         // });
 
-        // torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
+   //     torObject.updateSection(sectionKey, gptResponse.choices[0].message.content);
 
         // Fallback response for now
-                torObject.updateSection(nextSectionKey, `Processed value: ${getRandomNumber()}`);
+             torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
             }
             sections = torObject.getSectionsForRendering();
   
@@ -268,12 +313,20 @@ app.post("/process-next-section/:index", async (req, res) => {
         const currentSection = sections[index];
         const currentSectionKey = currentSection.NAME.toLowerCase().replace(/ /g, "");
         const nextSectionKey = nextSection ? nextSection.NAME.toLowerCase().replace(/ /g, "") : null;
-  
-       console.log("Current section key:", currentSectionKey);
-       console.log("Next section key:", nextSectionKey);
        if(nextSectionKey) {
-    
-       torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}`);
+  
+      
+        // const gptResponse = await openai.chat.completions.create({
+        //   model: "gpt-4",
+        //   messages: [
+        //     { role: "system", content: systemPrompt },
+        //     { role: "user", content: prompt }
+        //   ]
+        // });
+
+        // torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+
+      torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
     
         return res.json({
             success: true,
@@ -304,7 +357,6 @@ app.post("/save-start-date", (req, res) => {
             return res.status(400).json({ success: false, message: "TORObject is not initialized." });
         }
 
-        console.log("Starting date:", startingDate);
 
         torObject.setStartingDate(startingDate);  // Assume setStartingDate is defined on torObject
         res.json({
@@ -313,9 +365,6 @@ app.post("/save-start-date", (req, res) => {
             additionalInfo: torObject.getAdditionalInfoForRendering(),
         });
 
-        console.log("Starting date saved successfully.");
-
-        console.log("Additional info:", torObject.getAdditionalInfoForRendering());
     } catch (error) {
         console.error("Error saving starting date:", error);
         res.status(500).json({ success: false, message: "Server error." });
@@ -329,7 +378,6 @@ app.post("/save-evaluation-type", (req, res) => {
             return res.status(400).json({ success: false, message: "TORObject is not initialized." });
         }
 
-        console.log("Evaluation type:", evaluationType);
 
         torObject.setTypeOfEvaluation(evaluationType);  // Assume setTypeOfEvaluation is defined on torObject
         res.json({
@@ -338,8 +386,7 @@ app.post("/save-evaluation-type", (req, res) => {
             sections: torObject.getSectionsForRendering(),
         });
 
-        console.log("Evaluation type saved successfully.");
-        console.log("Evaluation type:", torObject.getAdditionalInfoForRendering());
+     
         torObject.updateSystemPrompt();
     } catch (error) {
         console.error("Error saving evaluation type:", error);
@@ -367,10 +414,7 @@ app.post("/update-tor/:index", (req, res) => {
       // Check if the value has changed before updating
       if (sections[index].VALUE !== updatedValue) {
         torObject.updateSection(sectionKey, updatedValue, isTextField);
-      } else {
-        console.log("No change detected, skipping update.");
-      }
-
+      } 
       res.json({
         success: true,
         message: `Section ${index + 1} updated successfully.`,

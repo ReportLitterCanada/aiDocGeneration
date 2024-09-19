@@ -24,7 +24,7 @@ class TORObject {
           { code: 'efficiency', name: 'Efficiency' },
           { code: 'coherence', name: 'Coherence' },
           { code: 'sustainability', name: 'Sustainability' },
-          { code: 'crosscutting', name: 'CrossCutting' },
+          { code: 'crosscutting', name: 'Cross-Cutting' },
         ]
       ),
     };
@@ -97,43 +97,49 @@ getSystemPrompt() {
   return this.systemPrompt;
 }
 
-  addEvaluationCriteriaSections(selectedCriteria) {
-    const criteriaMap = {
-      relevance: new TORSection('008', 'Relevance', 'Relevance', 8, "", {}),
-      effectiveness: new TORSection('009', 'Effectiveness', 'Effectiveness', 9, "", {}),
-      efficiency: new TORSection('010', 'Efficiency', 'Efficiency', 10, "", {}),
-      coherence: new TORSection('011', 'Coherence', 'Coherence', 11, "", {}),
-      sustainability: new TORSection('012', 'Sustainability', 'Sustainability', 12, "", {}),
-      crossCutting: new TORSection('013', 'crossCutting', 'crossCutting', 13, "", {}),
-    };
+addEvaluationCriteriaSections(selectedCriteria) {
+  const criteriaMap = {
+    relevance: new TORSection('008', 'Relevance', 'Relevance', 8, "", {}),
+    effectiveness: new TORSection('009', 'Effectiveness', 'Effectiveness', 9, "", {}),
+    efficiency: new TORSection('010', 'Efficiency', 'Efficiency', 10, "", {}),
+    coherence: new TORSection('011', 'Coherence', 'Coherence', 11, "", {}),
+    sustainability: new TORSection('012', 'Sustainability', 'Sustainability', 12, "", {}),
+    crosscutting: new TORSection('013', 'Cross-Cutting', 'Cross-Cutting', 13, "", {}),  // Correct naming here
+  };
 
-    selectedCriteria.forEach(criteriaCode => {
-      const section = criteriaMap[criteriaCode];
-      if (section && !this.sections[criteriaCode]) {
-        this.sections[criteriaCode] = section;
-        section.generatePrompt();  // Generate the prompt for the newly added section
-        console.log(`Added section: ${section.NAME}`);
-      }
-    });
-  }
+  selectedCriteria.forEach(criteriaCode => {
+    const section = criteriaMap[criteriaCode];
+    if (section && !this.sections[criteriaCode]) {
+      this.sections[criteriaCode] = section;
+      section.generatePrompt();  // Generate the prompt for the newly added section
+      console.log(`Added section: ${section.NAME}`);
+    }
+  });
+}
 
   // Method to get a section by its name
   getSection(name) {
     const sectionName = Object.keys(this.sections).find(key => key.toLowerCase().replace(/ /g, '') === name.toLowerCase().replace(/ /g, ''));
     return this.sections[sectionName];
   }
-
-  // Method to update a section's value and text field status
-  updateSection(name, value, isTextField = true) {
-    const section = this.getSection(name);
-    if (section) {
-      console.log(`Updating section: ${name} with value: ${value}`);
-      section.VALUE = value;
-      section.ISTEXTFIELD = isTextField;
-    } else {
-      console.warn(`Section ${name} not found.`);
-    }
+// Method to update a section's value and text field status
+updateSection(name, value, isTextField = true) {
+  const normalize = str => str.toLowerCase().replace(/[- ]/g, '');
+  
+  // Find the section key based on the normalized input name
+  const sectionKey = Object.keys(this.sections).find(key => normalize(this.sections[key].NAME) === normalize(name));
+  
+  // Retrieve the section using the normalized key
+  const section = this.sections[sectionKey];
+  
+  if (section) {
+    console.log(`Updating section: ${name} with value: ${value}`);
+    section.VALUE = value;
+    section.ISTEXTFIELD = isTextField;
+  } else {
+    console.warn(`Section ${name} not found.`);
   }
+}
 
   // Method to get all sections formatted for rendering
   getSectionsForRendering() {

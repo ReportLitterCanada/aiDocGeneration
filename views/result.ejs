@@ -261,11 +261,12 @@
                             <% section.extraPromptParameters.forEach(function(parameter) { %>
                                
                                 <div class="checkbox-item">
+                                    <input type="checkbox" id="<%= parameter.code %>" name="<%= parameter.code %>"
+                                    value="<%= parameter.code %>" />
                                     <label for="<%= parameter.code %>">
                                         <%= parameter.name %>
                                     </label>
-                                    <input type="checkbox" id="<%= parameter.code %>" name="<%= parameter.code %>"
-                                        value="<%= parameter.code %>" />
+                                  
                                 </div>
                                 
                             <% }); %>
@@ -277,7 +278,7 @@
                         <% } else { %>
                             <!-- If no extraPromptParameters, show section name and value directly -->
                             <strong>
-                                <%= section.NAME %>:
+                                <%= section.NAME %>
                             </strong>
                             <div id="content-<%= index %>">
                                 <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
@@ -305,21 +306,23 @@
         
                 <% if (index === 0) { %>
                     <div id="date-section" style="display: none;">
-                        <strong for="startDate">Starting Date:</strong><br/>     
+                        <strong for="startDate">Starting Date</strong><br/>     
+                        <div id="selected-date" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                            <!-- Selected date will be shown here -->
+                        </div>
                         <div id="the-date">
                             <div style="margin-top: 20px;">   
                                 <input type="date" id="startDate" name="startDate" />
                             </div>
+                        </div>
                             <div class="buttons">
                                 <button id="save-start-date" onclick="saveStartDate()">
-                                    Save
+                                 <span class="date-text"> Save</span>  
                                     <div id="spinner-start-date" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
                                 </button>
-                            </div>
+                         
                         </div>
-                        <div id="selected-date" style="margin-top: 20px; font-size: 1.2em; color: #333;">
-                            <!-- Selected date will be shown here -->
-                        </div>
+                      
                     </div>
                     
                     
@@ -340,52 +343,64 @@ function updateSelectedType() {
         const selectElement = document.getElementById('typeOfEvaluation');
         const selectedType = selectElement.options[selectElement.selectedIndex].text;
         const displayElement = document.getElementById('selected-evaluation-type');
+      
         displayElement.textContent = `${selectedType}`;
+      
     }
 
     function updateSelectedDate() {
         const startDate = document.getElementById('startDate').value;
         const displayElement = document.getElementById('selected-date');
+        const dateInput=document.getElementById('the-date');
+        dateInput.style.display='none';
         displayElement.textContent = `${startDate}`;
+
     }
 function saveStartDate() {
-        const startDate = document.getElementById('startDate').value;
-        
-        if (!startDate) {
-            alert('Please select a starting date.');
-            return;
-        }
+    const startDate = document.getElementById('startDate').value;
+    const spinner = document.getElementById('spinner-start-date');  // Get the spinner element
+    const saveButton = document.getElementById('save-start-date');  // Get the save button
+    const dateText=document.querySelector('.date-text');
 
-        // Store the starting date (send it to the server or save locally)
-        console.log('Starting Date:', startDate);
-        fetch('/save-start-date', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ startDate })  // Match this to the server-side expectation
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Starting date saved:', data);
-
-            
-              
-                document.getElementById('the-date').style.display = 'none';
-                updateSelectedDate();
-
-                // Now proceed to section 1
-                acceptSection(0, false,true); // 'true' indicates this was called from save
-            } else {
-                console.error('Failed to save starting date:', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+    // Validate that a date is selected
+    if (!startDate) {
+        alert('Please select a starting date.');
+        return;
     }
 
+    // Show the spinner and disable the save button while processing
+    if (spinner) {
+        dateText.style.display='none';
+        spinner.style.display = 'inline-block';  // Show spinner
+       
+       
+    }
+
+    // Store the starting date (send it to the server or save locally)
+    
+    fetch('/save-start-date', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ startDate })  // Match this to the server-side expectation
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateSelectedDate();
+
+            // Now proceed to section 1
+            acceptSection(0, false, true); 
+        } else {
+            console.error('Failed to save starting date:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    })
+  
+}
 function saveEvaluationType() {
     const typeOfEvaluation = document.getElementById('typeOfEvaluation').value;
 
@@ -393,9 +408,6 @@ function saveEvaluationType() {
         alert('Please select a type of evaluation.');
         return;
     }
-
-    // Store the type of evaluation (send it to the server or save locally)
-    console.log('Evaluation Type:', typeOfEvaluation);
     fetch('/save-evaluation-type', {
         method: 'POST',
         headers: {
@@ -406,8 +418,6 @@ function saveEvaluationType() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Evaluation type saved:', data);
-           
         } else {
             console.error('Failed to save evaluation type:', data.message);
         }
@@ -511,12 +521,9 @@ function saveEvaluationType() {
     .then(data => {
         if (data.success) {
             sections = data.sections;
-            console.log('Updated sections:', sections); // Debugging line
-
             const nextIndex = index + 1;
             const nextSection = data.sections[nextIndex];
             const currentSectionElement = document.getElementById('section-' + index);
-            console.log('current section element', currentSectionElement);
             
             if (currentSectionElement) {
                 currentSectionElement.style.display = 'none';  
@@ -534,7 +541,7 @@ function saveEvaluationType() {
 
                     // Add the content HTML
                     nextSectionElement.innerHTML = `
-                        <strong>${nextSection.NAME}:</strong>
+                        <strong>${nextSection.NAME}</strong>
                         <div id="content-${nextIndex}">
                             <textarea id="textarea-${nextIndex}" readonly>${nextSection.VALUE}</textarea>
                             <input type="text" id="input-${nextIndex}" value="${nextSection.VALUE}" style="display: none;" />
@@ -586,7 +593,6 @@ function editSection(index) {
             const discardButton = document.getElementById('discard-' + index);
             const acceptButton = document.getElementById('accept-' + index);
             const shortValueDiv = document.getElementById('short-value-' + index);
-console.log('TEXTAREA',textarea);
             // Initialize input field with textarea value
             input.value = textarea.value;
             textarea.style.display = 'none';
@@ -607,7 +613,12 @@ console.log('TEXTAREA',textarea);
             const value = input.value;
 
             textarea.value = value;
-     
+          
+            // Populate the short value div
+            if (shortValueDiv) {
+                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
+                shortValueDiv.style.display = 'block';
+            }
             fetch(`/update-tor/${index}`, {
                 method: 'POST',
                 headers: {
@@ -623,15 +634,7 @@ console.log('TEXTAREA',textarea);
                     document.getElementById('edit-' + index).style.display = 'inline-block';
                     document.getElementById('save-' + index).style.display = 'none';
                     document.getElementById('discard-' + index).style.display = 'none';
-                    if (textarea) {
-                textarea.style.display = 'none';
-            }
-            // Populate the short value div
-            if (shortValueDiv) {
-                
-                shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
-                shortValueDiv.style.display = 'block';
-            }
+
                     acceptSection(index, true,false); // Handle the accepted section properly.
                 })
                 .catch(error => {
@@ -664,7 +667,7 @@ console.log('TEXTAREA',textarea);
             
            
             if (shortValueDiv) {
-            shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
             shortValueDiv.style.display = 'block';
         }
 
@@ -703,19 +706,21 @@ console.log('TEXTAREA',textarea);
         }
         // Populate the short value div
         if (shortValueDiv) {
-            shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+            shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
             shortValueDiv.style.display = 'block';
         }
+
     }
 
     if (index === 0 && !calledFromStartDate) {
         // Show the date section if the current section is 0
         document.getElementById('date-section').style.display = 'block';
+
         return; // Stop processing until the date is saved
     }
 
     // Simulate a network delay
-    setTimeout(() => {
+   
         // Send a request to process the accepted section
         const textareaValue = textarea ? textarea.value : '';
         fetch(`/process-next-section/${index}`, {
@@ -728,7 +733,6 @@ console.log('TEXTAREA',textarea);
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('DATA', data);
                 // Proceed to the next section
                 const nextIndex = index + 1;
 
@@ -743,7 +747,6 @@ console.log('TEXTAREA',textarea);
                     }
                     nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else if (data.sections[nextIndex]) {
-                    console.log('This condition');
                     // Create and display the new next section dynamically
                     const nextSectionElement = document.createElement('li');
                     nextSectionElement.id = 'section-' + nextIndex;
@@ -751,7 +754,7 @@ console.log('TEXTAREA',textarea);
 
                     // Add the content HTML
                     nextSectionElement.innerHTML = `
-                        <strong>${data.sections[nextIndex].NAME}:</strong>
+                        <strong>${data.sections[nextIndex].NAME}</strong>
                         <div id="content-${nextIndex}">
                             <textarea id="textarea-${nextIndex}" readonly>${data.sections[nextIndex].VALUE}</textarea>
                             <input type="text" id="input-${nextIndex}" value="${data.sections[nextIndex].VALUE}" style="display: none;" />
@@ -786,6 +789,7 @@ console.log('TEXTAREA',textarea);
             if (spinner) {
                 spinner.style.display = 'none';
             }
+            document.getElementById('save-start-date').style.display='none';
 
             // Hide the accept button and update the edit button after processing
             if (acceptButton) {
@@ -800,21 +804,18 @@ console.log('TEXTAREA',textarea);
             if (textarea) {
                 textarea.style.display = 'none';
             }
-            i
             // Populate the short value div
             if (shortValueDiv&&!calledFromSave) {
-                
-                shortValueDiv.textContent = textarea ? textarea.value.slice(0, 3) : '';
+                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
                 shortValueDiv.style.display = 'block';
             }
         });
-    }, 2000); // Simulate a 2-second delay
+
 }
 
    
         // Ensure previously accepted sections remain visible
         document.querySelectorAll('li').forEach((section, i) => {
-            console.log('Checking section:', i, acceptedSections.has(i));
             if (acceptedSections.has(i)) {
                 section.classList.add('visible');
             }
