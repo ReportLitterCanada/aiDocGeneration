@@ -232,6 +232,11 @@
 
 <body>
     <h1>Evaluation Results</h1>
+    <% if (typeof additionalInfo !== 'undefined' && additionalInfo.length > 0) { %>
+        <script>
+            console.error("<%= additionalInfo %>");
+          </script>
+      <% } %>
     <ul>
 
         <div id="evaluation-type">
@@ -296,7 +301,10 @@
                                         <div id="spinner-<%= index %>" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
                                     </button>
                                 <button onclick="saveSection(<%= index %>)" id="save-<%= index %>"
-                                    style="display:none;">Save</button>
+                                    style="display:none;">
+                                    <span class="save-text">Save</span>
+                                    <div id="saveSpinner-<%= index %>" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                                </button>
                                 <button onclick="discardSection(<%= index %>)" id="discard-<%= index %>"
                                     style="display:none;">Discard</button>
                             </div>
@@ -338,7 +346,7 @@
 
 
     <script>
-
+ let acceptedSections = new Set();
 function updateSelectedType() {
         const selectElement = document.getElementById('typeOfEvaluation');
         const selectedType = selectElement.options[selectElement.selectedIndex].text;
@@ -490,7 +498,7 @@ function saveEvaluationType() {
                 .catch(error => console.error('Download error:', error));
         }
 
-        let acceptedSections = new Set();
+       
         // Embedding the sections array directly into the client-side JavaScript
         let sections = <%- JSON.stringify(sections) %>;
      
@@ -501,7 +509,7 @@ function saveEvaluationType() {
         .filter(value => value !== null);
 
     // Prepare the data to send to the server
-    const requestData = { parameters: selectedParameters };
+    const requestData = { parameters: selectedParameters,callEndpoint: true };
 
     // Show the spinner for the current section
     const spinner = document.getElementById('spinner-' + index);
@@ -555,7 +563,10 @@ function saveEvaluationType() {
                                 <span class="accept-text">Accept</span>
                                 <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner element -->
                             </button>
-                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">Save</button>
+                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">
+                                <span class="save-text">Save</span>
+                                    <div id="saveSpinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                              </button>
                             <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
                         </div>
                     `;
@@ -586,6 +597,7 @@ function saveEvaluationType() {
 }
 
 function editSection(index) {
+
             const textarea = document.getElementById('textarea-' + index);
             const input = document.getElementById('input-' + index);
             const editButton = document.getElementById('edit-' + index);
@@ -593,16 +605,21 @@ function editSection(index) {
             const discardButton = document.getElementById('discard-' + index);
             const acceptButton = document.getElementById('accept-' + index);
             const shortValueDiv = document.getElementById('short-value-' + index);
+            const spinner = document.getElementById('saveSpinner-' + index); // Spinner element
+            const saveText=saveButton?saveButton.querySelector('.save-text'):null;
             // Initialize input field with textarea value
             input.value = textarea.value;
             textarea.style.display = 'none';
             input.style.display = 'block';
+            spinner.style.display = 'none';
+            saveText.style.display='inline-block';
 
             editButton.style.display = 'none';
             acceptButton.style.display = 'none';
             shortValueDiv.style.display = 'none';
             saveButton.style.display = 'inline-block';
             discardButton.style.display = 'inline-block';
+          
         }
 
 
@@ -610,9 +627,20 @@ function editSection(index) {
             const textarea = document.getElementById('textarea-' + index);
             const input = document.getElementById('input-' + index);
             const shortValueDiv = document.getElementById('short-value-' + index);
+            const spinner = document.getElementById('saveSpinner-' + index); // Spinner element
+            const editButton = document.getElementById('edit-' + index);
+            const saveButton = document.getElementById('save-' + index);
             const value = input.value;
+            let previousSectionBeingEdited = false;
 
+            if(acceptedSections.has(index)) {
+                previousSectionBeingEdited = true;
+            }
             textarea.value = value;
+            if(spinner) {
+              
+                spinner.style.display = 'inline-block';
+            }
           
             // Populate the short value div
             if (shortValueDiv) {
@@ -628,13 +656,19 @@ function editSection(index) {
             })
                 .then(response => response.json())
                 .then(data => {
-                    textarea.style.display = 'none';
-                    input.style.display = 'none';
-
-                    document.getElementById('edit-' + index).style.display = 'inline-block';
-                    document.getElementById('save-' + index).style.display = 'none';
-                    document.getElementById('discard-' + index).style.display = 'none';
-
+if(previousSectionBeingEdited) {
+    
+    saveButton.style.display = 'none';
+        if (editButton) {
+                    editButton.classList.remove('edit-text');
+                    editButton.classList.add('edit-icon');
+                    editButton.style.backgroundColor = 'transparent';
+                    editButton.innerHTML = '✏️';
+                    editButton.style.display = 'inline-block';
+                }
+                
+    
+}
                     acceptSection(index, true,false); // Handle the accepted section properly.
                 })
                 .catch(error => {
@@ -675,7 +709,7 @@ function editSection(index) {
             // If needed, hide the accept button after discarding
             // acceptButton.style.display = 'none'; 
         }
-     
+
         function acceptSection(index, calledFromSave = false, calledFromStartDate = false) {
     const acceptButton = document.getElementById('accept-' + index);
     const editButton = document.getElementById('edit-' + index);
@@ -683,13 +717,30 @@ function editSection(index) {
     const spinner = document.getElementById('spinner-' + index); // Spinner element
     const acceptText = acceptButton ? acceptButton.querySelector('.accept-text') : null;
     const shortValueDiv = document.getElementById('short-value-' + index);
-
+    const input = document.getElementById('input-' + index);
+    const saveButton = document.getElementById('save-' + index);
+    const saveText = saveButton ? saveButton.querySelector('.save-text') : null;
+    let callEndpoint = true;
+    
+    if (acceptedSections.has(index)) {
+        callEndpoint = false;
+    }
+    
     // Ensure the spinner is visible
     if (spinner) {
         spinner.style.display = 'inline-block';
         if (acceptText) acceptText.style.display = 'none'; // Hide Accept text
+        if (saveText) saveText.style.display = 'none';
+    }
+    
+    if (input) {
+        input.style.display = 'none';
     }
 
+
+    document.getElementById('discard-' + index).style.display = 'none';
+    acceptedSections.add(index);
+    
     // Hide the accept button and update the edit button after processing
     if (index == 0) {
         if (acceptButton) {
@@ -709,18 +760,15 @@ function editSection(index) {
             shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
             shortValueDiv.style.display = 'block';
         }
-
     }
 
     if (index === 0 && !calledFromStartDate) {
         // Show the date section if the current section is 0
         document.getElementById('date-section').style.display = 'block';
-
         return; // Stop processing until the date is saved
     }
 
-    // Simulate a network delay
-   
+  
         // Send a request to process the accepted section
         const textareaValue = textarea ? textarea.value : '';
         fetch(`/process-next-section/${index}`, {
@@ -728,16 +776,25 @@ function editSection(index) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ value: textareaValue, calledFromSave, calledFromStartDate })
+            body: JSON.stringify({ value: textareaValue, calledFromSave, calledFromStartDate, callEndpoint })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 // Proceed to the next section
                 const nextIndex = index + 1;
-
+              
                 const nextSection = document.getElementById('section-' + nextIndex);
-
+                if (editButton&&callEndpoint) {
+              
+                    saveButton.style.display = 'none';
+                    editButton.classList.remove('edit-text');
+                    editButton.classList.add('edit-icon');
+                    editButton.style.backgroundColor = 'transparent';
+                    editButton.innerHTML = '✏️';
+                    editButton.style.display = 'inline-block';
+                }
+                
                 if (nextSection) {
                     // Show and update the next section if it already exists
                     nextSection.classList.add('visible');
@@ -751,6 +808,7 @@ function editSection(index) {
                     const nextSectionElement = document.createElement('li');
                     nextSectionElement.id = 'section-' + nextIndex;
                     nextSectionElement.classList.add('visible');
+                    callEndpoint = true;
 
                     // Add the content HTML
                     nextSectionElement.innerHTML = `
@@ -768,7 +826,10 @@ function editSection(index) {
                                 <span class="accept-text">Accept</span>
                                 <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner element -->
                             </button>
-                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">Save</button>
+                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">
+                                <span class="save-text">Save</span>
+                                    <div id="saveSpinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                              </button>
                             <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
                         </div>
                     `;
@@ -785,44 +846,47 @@ function editSection(index) {
         })
         .catch(error => console.error('Error:', error))
         .finally(() => {
+         
             // Hide the spinner after the request is complete
             if (spinner) {
                 spinner.style.display = 'none';
             }
-            document.getElementById('save-start-date').style.display='none';
+            document.getElementById('save-start-date').style.display = 'none';
 
             // Hide the accept button and update the edit button after processing
             if (acceptButton) {
                 acceptButton.style.display = 'none';
             }
+       
             if (editButton) {
                 editButton.classList.remove('edit-text');
                 editButton.classList.add('edit-icon');
                 editButton.style.backgroundColor = 'transparent';
                 editButton.innerHTML = '✏️';
             }
+
             if (textarea) {
                 textarea.style.display = 'none';
             }
             // Populate the short value div
-            if (shortValueDiv&&!calledFromSave) {
+            if (shortValueDiv && !calledFromSave) {
                 shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
                 shortValueDiv.style.display = 'block';
             }
-        });
 
+        });
+    
+
+    // Ensure previously accepted sections remain visible
+    document.querySelectorAll('li').forEach((section, i) => {
+        if (acceptedSections.has(i)) {
+            section.classList.add('visible');
+        }
+    });
 }
-
-   
-        // Ensure previously accepted sections remain visible
-        document.querySelectorAll('li').forEach((section, i) => {
-            if (acceptedSections.has(i)) {
-                section.classList.add('visible');
-            }
-        });
-
-
-    </script>
+  </script>
 </body>
+
+
 
 </html>

@@ -63,7 +63,7 @@
     <form action="/upload" method="POST" enctype="multipart/form-data">
         <h1 id="upload-title">Upload Your Document</h1>
         <label for="file" id="file-label">Choose a File</label>
-        <input type="file" id="file" name="file" required onchange="showLoading()">
+        <input type="file" id="file" name="file" accept=".docx, .pdf" required onchange="showLoading()">
         <div id="loading" class="loading">Generating Response, Please Wait...</div>
     </form>
 
