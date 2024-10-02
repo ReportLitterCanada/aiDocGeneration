@@ -10,7 +10,11 @@ const { Document, Packer, Paragraph, TextRun } = require("docx");
 const path = require("path");
 const { error } = require("console");
 const app = express();
-
+app.use((req, res, next) => {
+  req.setTimeout(300000); // Set request timeout to 5 minutes
+  res.setTimeout(300000); // Set response timeout to 5 minutes
+  next();
+});
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views")); // Correctly set the path to the views directory
 app.use(express.urlencoded({ extended: true }));
@@ -26,13 +30,22 @@ const openai = new OpenAI({
 
 let torObject = null; // Declare a global variable to store the TORObject instance
 
+// app.get("/", (req, res) => {
+//   res.render("index");
+// });
 app.get("/", (req, res) => {
-  res.render("index");
+  // Check if the "norobots" parameter is present in the URL
+  if (req.query.norobots !== undefined) {
+    // Render index page if ?norobots is present
+    res.render("index");
+  } else {
+    // Render an alternative page if ?norobots is not present
+    res.render("alternativepage");  // Replace 'alternativePage' with your actual page name
+  }
 });
 
 const getRandomNumber = () => Math.floor(Math.random() * 1000);
 
-// PDF Download Route
 app.post("/download-pdf", (req, res) => {
   try {
     const doc = new PDFDocument();
@@ -57,6 +70,11 @@ app.post("/download-pdf", (req, res) => {
     if (torObject) {
       const sections = torObject.getSectionsForRendering();
       sections.forEach((section, index) => {
+        // Skip section 7 (index === 6 since it's 0-based)
+        if (index ===7) {
+          return;
+        }
+
         if (index === 0) {
           doc.fontSize(18).text(section.NAME, { align: "left" });
           doc.fontSize(12).text(section.VALUE, { align: "left" });
@@ -85,6 +103,7 @@ app.post("/download-pdf", (req, res) => {
   }
 });
 
+
 // Word Document Download Route
 app.post("/download-word", (req, res) => {
   try {
@@ -107,9 +126,15 @@ app.post("/download-word", (req, res) => {
     if (torObject && torObject.getTypeOfEvaluation()) {
       sections[0].children.push(
         new Paragraph({
-          text: `Type of Evaluation: ${torObject.getTypeOfEvaluation()}`,
+          text: "Type of Evaluation:",
           heading: "Heading2",
-          spacing: { after: 10 },
+          spacing: { after: 10 },  // Add spacing after the name
+        })
+      );
+      sections[0].children.push(
+        new Paragraph({
+          text: torObject.getTypeOfEvaluation(),
+          spacing: { after: 10 },  // Add spacing after the value
         })
       );
     }
@@ -119,30 +144,41 @@ app.post("/download-word", (req, res) => {
       const renderedSections = torObject.getSectionsForRendering();
       renderedSections.forEach((section, index) => {
         if (index === 0) {
+          // Add section name
           sections[0].children.push(
             new Paragraph({
               text: section.NAME,
               heading: "Heading2",
-              spacing: { after: 10 },
+              spacing: { after: 10 },  // Add spacing after the name
             })
           );
+          
+          // Add section value on a new line
           sections[0].children.push(
             new Paragraph({
               text: section.VALUE,
-              spacing: { after: 10 },
+              spacing: { after: 10 },  // Add spacing after the value
             })
           );
-
-          // Add Starting Date after section 0
+        
+          // Add Starting Date on a new line
           if (torObject.getStartingDate()) {
             sections[0].children.push(
               new Paragraph({
-                text: `Starting Date: ${torObject.getStartingDate()}`,
+                text: "Starting Date:", // Title of the Starting Date
                 heading: "Heading2",
                 spacing: { after: 10 },
               })
             );
+            sections[0].children.push(
+              new Paragraph({
+                text: torObject.getStartingDate(), // Value of the Starting Date
+                spacing: { after: 10 },  // Add spacing after the date
+              })
+            );
           }
+        
+        
         } else if (index !== 7) {
           // Skip section 7
           sections[0].children.push(
@@ -214,7 +250,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
        
         //  Uncomment the OpenAI API code to process the first section dynamically
         const gptResponse = await openai.chat.completions.create({
-          model: "gpt-4",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "user",
@@ -230,7 +266,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         );
 
         // Fallback response for now
-        // torObject.updateSection(sectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
+   //     torObject.updateSection(sectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
       } catch (error) {
         console.warn("OpenAI API call failed, using fallback:", error);
         torObject.updateSection(sectionKey, `OpenAI API call failed`);
@@ -245,61 +281,58 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     }
   } catch (error) {
     console.error("Error processing the request:", error);
-    res.status(500).send("An error occurred while processing your request.");
+    res.json({ success: false, message: error });
+    
   }
 });
 
 app.post("/process-next-section/:index", async (req, res) => {
   try {
     const index = parseInt(req.params.index, 10);
-    const selectedParameters = Array.isArray(req.body.parameters)
-      ? req.body.parameters
-      : [];
+    const selectedParameters = Array.isArray(req.body.parameters) ? req.body.parameters : [];
     const calledFromSave = req.body.calledFromSave;
     const callEndpoint = req.body.callEndpoint;
-    if (isNaN(index)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid index parameter." });
-    }
 
-    if (!torObject) {
-      return res
-        .status(400)
-        .json({ success: false, message: "TORObject is not initialized." });
+    if (isNaN(index)) {
+      return res.status(400).json({ success: false, message: "Invalid index parameter." });
     }
 
     let sections = torObject.getSectionsForRendering();
     const nextSection = sections[index + 1]; // Ensure nextSection is never undefined
     const systemPrompt = torObject.getSystemPrompt();
+
     if (selectedParameters.length > 0) {
-      const prompt = `${nextSection.prompt}`;
       torObject.addEvaluationCriteriaSections(selectedParameters);
       sections = torObject.getSectionsForRendering();
       const theNextOne = sections[index + 1];
-      const nextSectionKey = theNextOne
-        ? theNextOne.NAME.toLowerCase().replace(/ /g, "")
-        : null;
+      const prompt = `${theNextOne.prompt}`;
+      const nextSectionKey = theNextOne ? theNextOne.NAME.toLowerCase().replace(/ /g, "") : null;
 
       if (nextSectionKey) {
-        //  Uncomment the OpenAI API code to process the first section dynaimically
-        const gptResponse = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [{ role: "user", content: prompt },
-            {role:"user",content:`Here is the document text for reference:\n\n${documentText}`},
-          ],
-        });
-
+        // Call GPT only if callEndpoint is true
         if (callEndpoint) {
-          torObject.updateSection(
-            nextSectionKey,
-            gptResponse.choices[0].message.content
-          );
+          try {
+            const gptResponse = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "user", content: `Here is the document text for reference:\n\n${documentText}` },
+                { role: "system", content: systemPrompt },
+                { role: "user", content: prompt },
+              ],
+            });
+            if (gptResponse.choices && gptResponse.choices.length > 0) {
+              torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+            } else {
+              torObject.updateSection(nextSectionKey, `OpenAI call failed`);
+            }
+          } catch (error) {
+            console.warn("OpenAI API call failed, using fallback:", error);
+            torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}. Test 1. Test2.`);
+          }
+        } else {
+          // Fallback response if callEndpoint is false
+          torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}. Test 1. Test2.`);
         }
-        // Fallback response for now
-        //  if(callEndpoint){
-        //     torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
-        //  }
       }
       sections = torObject.getSectionsForRendering();
 
@@ -312,55 +345,60 @@ app.post("/process-next-section/:index", async (req, res) => {
     }
 
     if (index < 0 || index >= sections.length) {
-      return res
-        .status(400)
-        .json({ success: false, message: `Invalid section index ${index}.` });
+      return res.status(400).json({ success: false, message: `Invalid section index ${index}.` });
     }
 
     const currentSection = sections[index];
-    const currentSectionKey = currentSection.NAME.toLowerCase().replace(
-      / /g,
-      ""
-    );
-    const nextSectionKey = nextSection
-      ? nextSection.NAME.toLowerCase().replace(/ /g, "")
-      : null;
+    const currentSectionKey = currentSection.NAME.toLowerCase().replace(/ /g, "");
+    const nextSectionKey = nextSection ? nextSection.NAME.toLowerCase().replace(/ /g, "") : null;
+
     if (nextSectionKey) {
       const prompt = `${nextSection.prompt}`;
       if (nextSectionKey === "durationofevaluationprocess") {
-        const gptResponse = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-             {role:"user",content:`Here is the document text for reference:\n\n${documentText}`},
-            { role: "system", content: systemPrompt },
-            { role: "user", content: prompt },
-          ],
-        });
-        torObject.updateSection(
-          nextSectionKey,
-          gptResponse.choices[0].message.content
-        );
-
-        //     torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
-      } else {
-        const gptResponse = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            //   {role:"user",content:`Here is the document text for reference:\n\n${documentText}`},
-            { role: "user", content: prompt },
-          ],
-        });
-
         if (callEndpoint) {
-          torObject.updateSection(
-            nextSectionKey,
-            gptResponse.choices[0].message.content
-          );
-          //  torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
+          try {
+            const gptResponse = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "user", content: `Here is the document text for reference:\n\n${documentText}` },
+                { role: "system", content: systemPrompt },
+                { role: "user", content: prompt },
+              ],
+            });
+            if (gptResponse.choices && gptResponse.choices.length > 0) {
+              torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+            } else {
+              torObject.updateSection(nextSectionKey, `OpenAI call failed`);
+            }
+          } catch (error) {
+            console.warn("OpenAI API call failed, using fallback:", error);
+            torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}. Test 1. Test2.`);
+          }
+        } else {
+          torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}. Test 1. Test2.`);
+        }
+      } else {
+        if (callEndpoint) {
+          try {
+            const gptResponse = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "user", content: `Here is the document text for reference:\n\n${documentText}` },
+                { role: "user", content: prompt },
+              ],
+            });
+
+            if (gptResponse.choices && gptResponse.choices.length > 0) {
+              torObject.updateSection(nextSectionKey, gptResponse.choices[0].message.content);
+            } else {
+              torObject.updateSection(nextSectionKey, `OpenAI call failed`);
+            }
+          } catch (error) {
+            console.warn("OpenAI API call failed, using fallback:", error);
+            torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}. Test 1. Test2.`);
+          }
         }
       }
-
-      //  torObject.updateSection(nextSectionKey, `Fallback response: ${getRandomNumber()}.Test 1. Test2.`);
 
       return res.json({
         success: true,
@@ -378,7 +416,7 @@ app.post("/process-next-section/:index", async (req, res) => {
     }
   } catch (error) {
     console.error("Error processing next section:", error);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(500).json({ success: false, message: error });
   }
 });
 
@@ -421,7 +459,7 @@ app.post("/save-evaluation-type", (req, res) => {
     torObject.updateSystemPrompt();
   } catch (error) {
     console.error("Error saving evaluation type:", error);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(500).json({ success: false, message: error });
   }
 });
 
@@ -459,7 +497,7 @@ app.post("/update-tor/:index", (req, res) => {
     }
   } catch (error) {
     console.error("Error updating TOR section:", error);
-    res.status(500).json({ success: false, message: "Server error." });
+    res.status(500).json({ success: false, message: error });
   }
 });
 

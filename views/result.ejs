@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Evaluation Results</title>
+    <title>Terms of Reference</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
         body {
@@ -231,9 +231,10 @@
 </head>
 
 <body>
-    <h1>Evaluation Results</h1>
+    <h1>Terms of Reference</h1>
     <% if (typeof additionalInfo !== 'undefined' && additionalInfo.length > 0) { %>
         <script>
+            console.log("<%= additionalInfo.length %>");
             console.error("<%= additionalInfo %>");
           </script>
       <% } %>
@@ -250,7 +251,7 @@
             <div class="buttons">
                 <button id="save-evaluation-type" onclick="saveEvaluationType()">Save Evaluation Type</button>
             </div>
-            <div id="selected-evaluation-type" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+            <div id="selected-evaluation-type" style="margin-top: 20px; color: #333;">
                 <!-- Selected type will be shown here -->
             </div>
         </div>
@@ -278,7 +279,11 @@
                             </div>
                             <div class="buttons">
                                 <button id="save-prompt-<%= index %>"
-                                    onclick="savePromptForSection(<%= index %>)">Save</button>
+                                    onclick="savePromptForSection(<%= index %>)">
+                                    
+                                    <span class="save-text">Save</span>
+                                    <div id="spinner-<%= index %>" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
+                                 </button>
                             </div>
                         <% } else { %>
                             <!-- If no extraPromptParameters, show section name and value directly -->
@@ -286,11 +291,14 @@
                                 <%= section.NAME %>
                             </strong>
                             <div id="content-<%= index %>">
-                                <textarea id="textarea-<%= index %>" readonly><%= section.VALUE %></textarea>
-                                <input type="text" id="input-<%= index %>" value="<%= section.VALUE %>" style="display: none;" />
-                                <div id="short-value-<%= index %>" style="margin-top: 20px; font-size: 1.2em; color: #333;">
-                                    <!-- Short value will be displayed here -->
+                                <p id="textarea-<%= index %>" readonly><%= section.VALUE %></p>
+                                <textarea type="text" id="input-<%= index %>" value="<%= section.VALUE %>" style="display: none;" >
+                                    </textarea> 
+                                <div id="short-value-<%= index %>" style="margin-top: 20px;color: #333;">
+                                  
+                                 
                                 </div>
+                                <button onclick="viewMore(<%= index %>)" id="view-more-<%= index %>" style="margin-top:20px; background:transparent;border:none;color:blue;display: none;cursor: pointer;">View More</button>
                             </div>
         
                             <div class="buttons">
@@ -315,12 +323,13 @@
                 <% if (index === 0) { %>
                     <div id="date-section" style="display: none;">
                         <strong for="startDate">Starting Date</strong><br/>     
-                        <div id="selected-date" style="margin-top: 20px; font-size: 1.2em; color: #333;">
+                        <div id="selected-date" style="margin-top: 20px; color: #333;">
                             <!-- Selected date will be shown here -->
                         </div>
                         <div id="the-date">
                             <div style="margin-top: 20px;">   
                                 <input type="date" id="startDate" name="startDate" />
+                               
                             </div>
                         </div>
                             <div class="buttons">
@@ -513,8 +522,11 @@ function saveEvaluationType() {
 
     // Show the spinner for the current section
     const spinner = document.getElementById('spinner-' + index);
+    const saveButton = document.getElementById('save-prompt-' + index);
+    const saveText=saveButton.querySelector('.save-text');
     if (spinner) {
         spinner.style.display = 'inline-block';
+        saveText.style.display='none';
     }
 
     // Make a fetch request to process the prompts and get the updated value
@@ -536,6 +548,8 @@ function saveEvaluationType() {
             if (currentSectionElement) {
                 currentSectionElement.style.display = 'none';  
             }
+       
+            
 
             if (nextSection) {
                 // Create and append the new section if not already present
@@ -551,11 +565,12 @@ function saveEvaluationType() {
                     nextSectionElement.innerHTML = `
                         <strong>${nextSection.NAME}</strong>
                         <div id="content-${nextIndex}">
-                            <textarea id="textarea-${nextIndex}" readonly>${nextSection.VALUE}</textarea>
-                            <input type="text" id="input-${nextIndex}" value="${nextSection.VALUE}" style="display: none;" />
-                            <div id="short-value-${nextIndex}" style="margin-top: 20px; font-size: 1.2em; color: #333;">
-                                <!-- Short value will be displayed here -->
+                            <p id="textarea-${nextIndex}" readonly>${nextSection.VALUE}</p>
+                            <textarea type="text" id="input-${nextIndex}" value="${nextSection.VALUE}" style="display: none;"></textarea>
+                            <div id="short-value-${nextIndex}" style="margin-top: 20px; color: #333;">
+                            
                             </div>
+                            <button onclick="viewMore(${nextIndex})" id="view-more-${nextIndex}" style="margin-top:20px; background:transparent;border:none;color:blue;display: none;cursor:pointer">View More</button>
                         </div>
                         <div class="buttons">
                             <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
@@ -607,8 +622,9 @@ function editSection(index) {
             const shortValueDiv = document.getElementById('short-value-' + index);
             const spinner = document.getElementById('saveSpinner-' + index); // Spinner element
             const saveText=saveButton?saveButton.querySelector('.save-text'):null;
+            const viewMoreButton = document.getElementById('view-more-' + index);
             // Initialize input field with textarea value
-            input.value = textarea.value;
+            input.value = textarea.textContent;
             textarea.style.display = 'none';
             input.style.display = 'block';
             spinner.style.display = 'none';
@@ -619,6 +635,7 @@ function editSection(index) {
             shortValueDiv.style.display = 'none';
             saveButton.style.display = 'inline-block';
             discardButton.style.display = 'inline-block';
+            viewMoreButton.style.display = 'none';
           
         }
 
@@ -630,13 +647,14 @@ function editSection(index) {
             const spinner = document.getElementById('saveSpinner-' + index); // Spinner element
             const editButton = document.getElementById('edit-' + index);
             const saveButton = document.getElementById('save-' + index);
+            const viewMoreButton = document.getElementById('view-more-' + index);
             const value = input.value;
             let previousSectionBeingEdited = false;
 
             if(acceptedSections.has(index)) {
                 previousSectionBeingEdited = true;
             }
-            textarea.value = value;
+            textarea.textContent = value;
             if(spinner) {
               
                 spinner.style.display = 'inline-block';
@@ -644,8 +662,16 @@ function editSection(index) {
           
             // Populate the short value div
             if (shortValueDiv) {
-                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
+                shortValueDiv.textContent = textarea ? (textarea.textContent.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.textContent) : '';
                 shortValueDiv.style.display = 'block';
+                const sentenceCount = textarea.textContent.split(/[.!?]+/).filter(Boolean).length;
+                // Show "View More" button only if there are more than 2 sentences
+                if (sentenceCount > 2) {
+                    viewMoreButton.style.display = 'inline-block';
+                } else {
+                    viewMoreButton.style.display = 'none';
+                }
+              
             }
             fetch(`/update-tor/${index}`, {
                 method: 'POST',
@@ -683,7 +709,14 @@ if(previousSectionBeingEdited) {
             document.getElementById('discard-' + index).style.display = 'none';
             document.getElementById('accept-' + index).style.display = 'none';
             const shortValueDiv = document.getElementById('short-value-' + index);
+            const viewMoreButton = document.getElementById('view-more-' + index);
+            let previousSectionBeingEdited = false;
 
+if(acceptedSections.has(index)) {
+    previousSectionBeingEdited = true;
+}
+console.log('Previous Section:',previousSectionBeingEdited);
+if(previousSectionBeingEdited) {
         
             const textarea = document.getElementById('textarea-' + index);
 
@@ -701,10 +734,39 @@ if(previousSectionBeingEdited) {
             
            
             if (shortValueDiv) {
-                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
+                shortValueDiv.textContent = textarea ? (textarea.textContent.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.textContent) : '';
             shortValueDiv.style.display = 'block';
+            const sentenceCount = textarea.textContent.split(/[.!?]+/).filter(Boolean).length;
+            // Show "View More" button only if there are more than 2 sentences
+            if (sentenceCount > 2) {
+                viewMoreButton.style.display = 'inline-block';
+            } else {
+                viewMoreButton.style.display = 'none';
+            }
+            
+
         }
 
+    }
+    else{
+        const textarea = document.getElementById('textarea-' + index);
+        const input = document.getElementById('input-' + index);
+        const editButton = document.getElementById('edit-' + index);
+        const saveButton = document.getElementById('save-' + index);
+        const discardButton = document.getElementById('discard-' + index);
+        const acceptButton = document.getElementById('accept-' + index);
+        const shortValueDiv = document.getElementById('short-value-' + index);
+        const spinner = document.getElementById('saveSpinner-' + index); // Spinner element
+        const saveText=saveButton?saveButton.querySelector('.save-text'):null;
+        // Initialize input field with textarea value
+      
+        shortValueDiv.style.display = 'none';
+      
+        input.style.display = 'none';
+        textarea.style.display = 'block';
+        acceptButton.style.display = 'inline-block';
+        editButton.style.display = 'inline-block';
+    }
 
             // If needed, hide the accept button after discarding
             // acceptButton.style.display = 'none'; 
@@ -714,33 +776,37 @@ if(previousSectionBeingEdited) {
     const acceptButton = document.getElementById('accept-' + index);
     const editButton = document.getElementById('edit-' + index);
     const textarea = document.getElementById('textarea-' + index);
-    const spinner = document.getElementById('spinner-' + index); // Spinner element
+    const spinner = document.getElementById('spinner-' + index);
     const acceptText = acceptButton ? acceptButton.querySelector('.accept-text') : null;
     const shortValueDiv = document.getElementById('short-value-' + index);
+    const viewMoreButton = document.getElementById('view-more-' + index);
     const input = document.getElementById('input-' + index);
     const saveButton = document.getElementById('save-' + index);
     const saveText = saveButton ? saveButton.querySelector('.save-text') : null;
     let callEndpoint = true;
-    
+
     if (acceptedSections.has(index)) {
+        if(index!==0) {
+          
         callEndpoint = false;
-    }
+        }
     
+    }
+
     // Ensure the spinner is visible
     if (spinner) {
         spinner.style.display = 'inline-block';
-        if (acceptText) acceptText.style.display = 'none'; // Hide Accept text
+        if (acceptText) acceptText.style.display = 'none';
         if (saveText) saveText.style.display = 'none';
     }
-    
+
     if (input) {
         input.style.display = 'none';
     }
 
-
     document.getElementById('discard-' + index).style.display = 'none';
     acceptedSections.add(index);
-    
+
     // Hide the accept button and update the edit button after processing
     if (index == 0) {
         if (acceptButton) {
@@ -751,15 +817,31 @@ if(previousSectionBeingEdited) {
             editButton.classList.add('edit-icon');
             editButton.style.backgroundColor = 'transparent';
             editButton.innerHTML = '✏️';
+            editButton.style.display = 'inline-block';
         }
         if (textarea) {
             textarea.style.display = 'none';
         }
+        if (saveButton) {
+            saveButton.style.display = 'none';
+        }
         // Populate the short value div
         if (shortValueDiv) {
-            shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
-            shortValueDiv.style.display = 'block';
-        }
+    const textareaContent = textarea ? textarea.textContent : '';
+    const sentenceCount = textareaContent.split(/[.!?]+/).filter(Boolean).length;
+  console.log('Sentence Count:',sentenceCount);
+    // Show the first two sentences or less
+    shortValueDiv.textContent = textareaContent.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textareaContent;
+    shortValueDiv.style.display = 'block';
+
+    // Show "View More" button only if there are more than 2 sentences
+    if (sentenceCount > 2) {
+        viewMoreButton.style.display = 'inline-block';
+    } else {
+        viewMoreButton.style.display = 'none';
+    }
+}
+
     }
 
     if (index === 0 && !calledFromStartDate) {
@@ -768,114 +850,127 @@ if(previousSectionBeingEdited) {
         return; // Stop processing until the date is saved
     }
 
-  
-        // Send a request to process the accepted section
-        const textareaValue = textarea ? textarea.value : '';
-        fetch(`/process-next-section/${index}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ value: textareaValue, calledFromSave, calledFromStartDate, callEndpoint })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Proceed to the next section
-                const nextIndex = index + 1;
-              
-                const nextSection = document.getElementById('section-' + nextIndex);
-                if (editButton&&callEndpoint) {
-              
-                    saveButton.style.display = 'none';
-                    editButton.classList.remove('edit-text');
-                    editButton.classList.add('edit-icon');
-                    editButton.style.backgroundColor = 'transparent';
-                    editButton.innerHTML = '✏️';
-                    editButton.style.display = 'inline-block';
-                }
-                
-                if (nextSection) {
-                    // Show and update the next section if it already exists
-                    nextSection.classList.add('visible');
-                    const nextTextarea = document.getElementById('textarea-' + nextIndex);
-                    if (nextTextarea) {
-                        nextTextarea.value = data.sections[nextIndex].VALUE;
-                    }
-                    nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else if (data.sections[nextIndex]) {
-                    // Create and display the new next section dynamically
-                    const nextSectionElement = document.createElement('li');
-                    nextSectionElement.id = 'section-' + nextIndex;
-                    nextSectionElement.classList.add('visible');
-                    callEndpoint = true;
+    // Send a request to process the accepted section
+    const textareaValue = textarea ? textarea.textContent : '';
+    fetch(`/process-next-section/${index}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ value: textareaValue, calledFromSave, calledFromStartDate, callEndpoint })
+    })
+    .then(response => {
+        // Log the response for debugging
+        console.log('Response:', response);
+        if (!response.ok) {
+            throw new Error('Network response was not ok: ' + response.status);
+        }
+        return response.json(); // Parse JSON only if response is ok
+    })
+    .then(data => {
+        if (data.success) {
+            // Proceed to the next section
+            const nextIndex = index + 1;
 
-                    // Add the content HTML
-                    nextSectionElement.innerHTML = `
-                        <strong>${data.sections[nextIndex].NAME}</strong>
-                        <div id="content-${nextIndex}">
-                            <textarea id="textarea-${nextIndex}" readonly>${data.sections[nextIndex].VALUE}</textarea>
-                            <input type="text" id="input-${nextIndex}" value="${data.sections[nextIndex].VALUE}" style="display: none;" />
-                            <div id="short-value-${nextIndex}" style="margin-top: 20px; font-size: 1.2em; color: #333;">
-                                <!-- Short value will be displayed here -->
-                            </div>
-                        </div>
-                        <div class="buttons">
-                            <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
-                            <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">
-                                <span class="accept-text">Accept</span>
-                                <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner element -->
-                            </button>
-                            <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">
-                                <span class="save-text">Save</span>
-                                    <div id="saveSpinner-${nextIndex}" class="spinner" style="display: none;"></div> <!-- Spinner added here -->
-                              </button>
-                            <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
-                        </div>
-                    `;
-
-                    // Append the new section to the section list
-                    document.querySelector('ul').appendChild(nextSectionElement);
-                }
-            } else {
-                console.error('Error processing section:', data.message);
-                // All sections are accepted, show the download buttons
-                document.getElementById('download-btn').style.display = 'block';
-                document.getElementById('download-word-btn').style.display = 'block';
-            }
-        })
-        .catch(error => console.error('Error:', error))
-        .finally(() => {
-         
-            // Hide the spinner after the request is complete
-            if (spinner) {
-                spinner.style.display = 'none';
-            }
-            document.getElementById('save-start-date').style.display = 'none';
-
-            // Hide the accept button and update the edit button after processing
-            if (acceptButton) {
-                acceptButton.style.display = 'none';
-            }
-       
-            if (editButton) {
+            const nextSection = document.getElementById('section-' + nextIndex);
+            if (editButton && callEndpoint) {
+                saveButton.style.display = 'none';
                 editButton.classList.remove('edit-text');
                 editButton.classList.add('edit-icon');
                 editButton.style.backgroundColor = 'transparent';
                 editButton.innerHTML = '✏️';
+                editButton.style.display = 'inline-block';
             }
 
-            if (textarea) {
-                textarea.style.display = 'none';
-            }
-            // Populate the short value div
-            if (shortValueDiv && !calledFromSave) {
-                shortValueDiv.textContent = textarea ? (textarea.value.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.value) : '';
-                shortValueDiv.style.display = 'block';
-            }
+            if (nextSection) {
+                // Show and update the next section if it already exists
+                nextSection.classList.add('visible');
+                const nextTextarea = document.getElementById('textarea-' + nextIndex);
+                if (nextTextarea) {
+                    nextTextarea.textContent = data.sections[nextIndex].VALUE;
+                }
+                nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else if (data.sections[nextIndex]) {
+                // Create and display the new next section dynamically
+                const nextSectionElement = document.createElement('li');
+                nextSectionElement.id = 'section-' + nextIndex;
+                nextSectionElement.classList.add('visible');
 
-        });
-    
+                // Add the content HTML
+                nextSectionElement.innerHTML = `
+                    <strong>${data.sections[nextIndex].NAME}</strong>
+                    <div id="content-${nextIndex}">
+                        <p id="textarea-${nextIndex}" readonly>${data.sections[nextIndex].VALUE}</p>
+                        <textarea type="text" id="input-${nextIndex}" value="${data.sections[nextIndex].VALUE}" style="display: none;"></textarea>
+                        <div id="short-value-${nextIndex}" style="margin-top: 20px; color: #333;">
+                            <!-- Short value will be displayed here -->
+                        </div>
+                        <button onclick="viewMore(${nextIndex})" id="view-more-${nextIndex}"  style="margin-top:20px; background:transparent;border:none;color:blue;display: none;cursor:pointer">View More</button>
+                    </div>
+                    <div class="buttons">
+                        <button onclick="editSection(${nextIndex})" id="edit-${nextIndex}" class="edit-text">Edit</button>
+                        <button onclick="acceptSection(${nextIndex})" id="accept-${nextIndex}">
+                            <span class="accept-text">Accept</span>
+                            <div id="spinner-${nextIndex}" class="spinner" style="display: none;"></div>
+                        </button>
+                        <button onclick="saveSection(${nextIndex})" id="save-${nextIndex}" style="display:none;">
+                            <span class="save-text">Save</span>
+                            <div id="saveSpinner-${nextIndex}" class="spinner" style="display: none;"></div>
+                        </button>
+                        <button onclick="discardSection(${nextIndex})" id="discard-${nextIndex}" style="display:none;">Discard</button>
+                    </div>
+                `;
+
+                // Append the new section to the section list
+                document.querySelector('ul').appendChild(nextSectionElement);
+            }
+        } else {
+            console.error('Error processing section:', data.message);
+            // All sections are accepted, show the download buttons
+            document.getElementById('download-btn').style.display = 'block';
+            document.getElementById('download-word-btn').style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('ErrorIN HERE:', error);
+        // Handle other errors here (like network errors)
+    })
+    .finally(() => {
+        // Hide the spinner after the request is complete
+        if (spinner) {
+            spinner.style.display = 'none';
+        }
+        document.getElementById('save-start-date').style.display = 'none';
+
+        // Hide the accept button and update the edit button after processing
+        if (acceptButton) {
+            acceptButton.style.display = 'none';
+        }
+
+        if (editButton) {
+            editButton.classList.remove('edit-text');
+            editButton.classList.add('edit-icon');
+            editButton.style.backgroundColor = 'transparent';
+            editButton.innerHTML = '✏️';
+        }
+
+        if (textarea) {
+            textarea.style.display = 'none';
+        }
+        // Populate the short value div
+        if (shortValueDiv && !calledFromSave) {
+            shortValueDiv.textContent = textarea ? (textarea.textContent.match(/([^\.!\?]+[\.!\?]+){1,2}/)?.[0] || textarea.textContent) : '';
+            shortValueDiv.style.display = 'block';
+            const sentenceCount = textarea.textContent.split(/[.!?]+/).filter(Boolean).length;
+            // Show the first two sentences or less
+            if(sentenceCount > 2) {
+                viewMoreButton.style.display = 'inline-block';
+            }
+            else {
+                viewMoreButton.style.display = 'none';
+            }
+        }
+    });
 
     // Ensure previously accepted sections remain visible
     document.querySelectorAll('li').forEach((section, i) => {
@@ -884,7 +979,18 @@ if(previousSectionBeingEdited) {
         }
     });
 }
-  </script>
+
+ function viewMore(index) {
+    const textarea = document.getElementById('textarea-' + index);
+    const shortValueDiv = document.getElementById('short-value-' + index);
+    const viewMoreButton = document.getElementById('view-more-' + index);
+    textarea.style.display = 'block';
+    shortValueDiv.style.display = 'none';
+    viewMoreButton.style.display = 'none';
+    
+}
+
+</script>
 </body>
 
 
